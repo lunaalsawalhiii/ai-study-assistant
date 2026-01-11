@@ -1,167 +1,143 @@
-import React, { useState, useRef } from "react";
-import { Card } from "../components/Card";
-import { Modal } from "../components/Modal";
+import React, { useState, useRef, useEffect } from "react";
+import { ChatBubble } from "../components/ChatBubble";
+import { InputField } from "../components/InputField";
 import { BackButton } from "../components/BackButton";
-import { Upload } from "lucide-react";
-import { useMaterials } from "../context/MaterialsContext";
-import { AISuggestEventModal } from "../components/AISuggestEventModal";
-import { detectEventsFromText, DetectedEvent } from "../utils/eventDetection";
-import { projectId, publicAnonKey } from "/utils/supabase/info";
+import { Modal } from "../components/Modal";
+import { Sparkles, FileText, File as FileIcon, BookOpen, X, Send } from "lucide-react";
+import { useMaterials, UploadedMaterial } from "../context/MaterialsContext";
+import { useUser } from "../context/UserContext";
 
-/* =========================
-   FILE → BASE64
-========================= */
-const fileToBase64 = (file: File): Promise<string> =>
-  new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = () => {
-      const base64 = reader.result?.toString().split(",")[1];
-      if (base64) resolve(base64);
-      else reject("Failed to convert file");
-    };
-    reader.onerror = reject;
-  });
+interface Message {
+  id: number;
+  text: string;
+  type: "user" | "ai";
+  timestamp: string;
+  materialOptions?: UploadedMaterial[];
+  isPromptToSelectMaterial?: boolean;
+}
 
-export function ChatScreen({
-  onNavigate,
-}: {
-  onNavigate?: (screen: string) => void;
-}) {
-  const { materials, addMaterial } = useMaterials();
+export function ChatScreen({ onNavigate }: { onNavigate?: (screen: string) => void }) {
+  const { materials } = useMaterials();
+  const { user } = useUser();
 
-  const [showSuccessModal, setShowSuccessModal] = useState(false);
-  const [uploadingFileName, setUploadingFileName] = useState("");
-  const [suggestedEvent, setSuggestedEvent] =
-    useState<DetectedEvent | null>(null);
-  const [showSuggestModal, setShowSuggestModal] = useState(false);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [inputValue, setInputValue] = useState("");
+  const [isTyping, setIsTyping] = useState(false);
+  const [selectedMaterial, setSelectedMaterial] = useState<UploadedMaterial | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const MAX_FREE_DOCUMENTS = 10;
+  useEffect(() => {
+    setMessages([
+      {
+        id: 1,
+        type: "ai",
+        text: `Hello${user?.name ? ` ${user.name}` : ""}! Select a study material and ask me anything.`,
+        timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      },
+    ]);
+  }, []);
 
-  const formatFileSize = (bytes: number) => {
-    const k = 1024;
-    const sizes = ["Bytes", "KB", "MB", "GB"];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return `${Math.round((bytes / Math.pow(k, i)) * 100) / 100} ${sizes[i]}`;
-  };
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
 
-  /* =========================
-     FILE UPLOAD HANDLER
-  ========================= */
-  const handleFileSelect = async (
-    event: React.ChangeEvent<HTMLInputElement>
-  ) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
+  const handleSend = () => {
+    if (!inputValue.trim()) return;
 
-    if (materials.length >= MAX_FREE_DOCUMENTS) {
-      alert("Free plan limit reached");
-      return;
-    }
+    const time = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
-    try {
-      setUploadingFileName(file.name);
-      setShowSuccessModal(true);
+    setMessages((prev) => [
+      ...prev,
+      { id: Date.now(), type: "user", text: inputValue, timestamp: time },
+    ]);
 
-      // 1️⃣ Convert to base64
-      const base64Image = await fileToBase64(file);
+    setIsTyping(true);
 
-      // 2️⃣ Send to Supabase OCR
-      const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-12045ef3/document/ocr`,
+    setTimeout(() => {
+      setMessages((prev) => [
+        ...prev,
         {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${publicAnonKey}`,
-          },
-          body: JSON.stringify({ base64Image }),
-        }
-      );
+          id: Date.now() + 1,
+          type: "ai",
+          text: selectedMaterial
+            ? `Answering strictly from "${selectedMaterial.name}".`
+            : "Please select a study material first.",
+          timestamp: time,
+        },
+      ]);
+      setIsTyping(false);
+    }, 1000);
 
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.error || "OCR failed");
-      }
-
-      // 3️⃣ Save material
-      addMaterial({
-        id: Date.now(),
-        name: file.name,
-        type: "pdf",
-        date: "Just now",
-        size: formatFileSize(file.size),
-        file,
-        content: data.text || "",
-        processed: Boolean(data.text),
-        processingError: data.text ? null : "OCR returned no text",
-        usedOCR: true,
-      });
-
-      // 4️⃣ Detect events
-      const events = detectEventsFromText(data.text || "");
-      if (events.length > 0) {
-        setSuggestedEvent(events[0]);
-        setShowSuggestModal(true);
-      }
-    } catch (err: any) {
-      alert(err.message || "Upload failed");
-    } finally {
-      setShowSuccessModal(false);
-      setUploadingFileName("");
-      if (fileInputRef.current) fileInputRef.current.value = "";
-    }
+    setInputValue("");
   };
 
   return (
-    <div className="min-h-screen pb-20 bg-background">
-      <div className="bg-gradient-to-br from-primary/20 to-secondary/20 px-6 pt-12 pb-6 rounded-b-3xl relative">
+    <div className="flex flex-col h-screen bg-background">
+      <div className="bg-gradient-to-r from-primary/20 to-secondary/20 px-6 pt-12 pb-4 rounded-b-3xl relative">
         {onNavigate && (
           <div className="absolute top-12 left-6">
             <BackButton onBack={() => onNavigate("home")} />
           </div>
         )}
-        <h1 className="text-2xl font-bold">Study Materials</h1>
-        <p className="text-muted-foreground mt-1">
-          {materials.length} / {MAX_FREE_DOCUMENTS} files (Free Plan)
-        </p>
-      </div>
 
-      <div className="px-6 mt-6">
-        <Card
-          onClick={() => fileInputRef.current?.click()}
-          className="border-2 border-dashed cursor-pointer"
-        >
-          <div className="flex flex-col items-center py-8 gap-3">
-            <Upload className="w-8 h-8" />
-            <p>Upload New Material</p>
+        <div className="flex items-center gap-3">
+          <div className="w-12 h-12 bg-gradient-to-br from-primary to-secondary rounded-full flex items-center justify-center">
+            <Sparkles className="w-6 h-6 text-white" />
           </div>
-        </Card>
+          <div>
+            <h1 className="text-xl font-bold">AI Study Chat</h1>
+            <p className="text-sm text-muted-foreground">Answers from your materials only</p>
+          </div>
+        </div>
 
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept=".pdf,.txt,.doc,.docx"
-          onChange={handleFileSelect}
-          className="hidden"
-        />
+        {selectedMaterial ? (
+          <div className="mt-4 bg-card/70 rounded-xl p-3 flex items-center gap-3">
+            <FileText className="w-4 h-4 text-primary" />
+            <p className="text-sm font-semibold truncate flex-1">{selectedMaterial.name}</p>
+            <button onClick={() => setSelectedMaterial(null)}>
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={() => {}}
+            className="mt-4 w-full bg-card/70 rounded-xl p-3"
+          >
+            <div className="flex items-center justify-center gap-2">
+              <BookOpen className="w-4 h-4 text-primary" />
+              <span className="text-sm font-semibold">Select Study Material</span>
+            </div>
+          </button>
+        )}
       </div>
 
-      <Modal
-        isOpen={showSuccessModal}
-        onClose={() => {}}
-        title="Processing File"
-      >
-        <p>{uploadingFileName}</p>
-      </Modal>
+      <div className="flex-1 overflow-y-auto px-6 py-4">
+        {messages.map((m) => (
+          <ChatBubble
+            key={m.id}
+            message={m.text}
+            type={m.type}
+            timestamp={m.timestamp}
+          />
+        ))}
+        {isTyping && <p className="text-sm text-muted-foreground">Typing…</p>}
+        <div ref={messagesEndRef} />
+      </div>
 
-      <AISuggestEventModal
-        isOpen={showSuggestModal}
-        suggestedEvent={suggestedEvent}
-        onAccept={() => setShowSuggestModal(false)}
-        onReject={() => setShowSuggestModal(false)}
-      />
+      <div className="px-6 pb-6 pt-4 border-t flex gap-2">
+        <InputField
+          value={inputValue}
+          onChange={setInputValue}
+          placeholder="Ask me anything..."
+          onSubmit={handleSend}
+        />
+        <button
+          onClick={handleSend}
+          className="w-12 h-12 bg-primary text-white rounded-xl flex items-center justify-center"
+        >
+          <Send className="w-5 h-5" />
+        </button>
+      </div>
     </div>
   );
 }
