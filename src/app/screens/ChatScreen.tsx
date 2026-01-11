@@ -1,11 +1,8 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Send, Sparkles, FileText, X } from "lucide-react";
+import { Send, Sparkles } from "lucide-react";
 import { BackButton } from "../components/BackButton";
 import { InputField } from "../components/InputField";
 import { ChatBubble } from "../components/ChatBubble";
-import { Modal } from "../components/Modal";
-import { useMaterials, UploadedMaterial } from "../context/MaterialsContext";
-import { chunkText } from "../utils/chunkText";
 
 interface Message {
   id: number;
@@ -17,16 +14,11 @@ interface Message {
 export function ChatScreen({
   onNavigate,
 }: {
-  onNavigate?: (s: string) => void;
+  onNavigate?: (screen: string) => void;
 }) {
-  const { materials } = useMaterials();
-  const [selectedMaterial, setSelectedMaterial] =
-    useState<UploadedMaterial | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState("");
   const [isTyping, setIsTyping] = useState(false);
-  const [showMaterialSelector, setShowMaterialSelector] = useState(false);
-
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const timeNow = () =>
@@ -42,16 +34,14 @@ export function ChatScreen({
       {
         id: 1,
         type: "ai",
-        timestamp: timeNow(),
         text:
-          "Hi 👋 I’m **Luna**, your AI study partner.\n\n" +
-          "You can talk to me like ChatGPT.\n\n" +
-          "📄 When you’re ready, select a study document and I’ll answer **from it**.",
+          "Hi 👋 I’m **Luna**, your AI assistant.\n\n" +
+          "You can talk to me like ChatGPT. Ask me anything 🙂",
+        timestamp: timeNow(),
       },
     ]);
   }, []);
 
-  // Auto scroll
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isTyping]);
@@ -75,58 +65,35 @@ export function ChatScreen({
     setIsTyping(true);
 
     try {
-      let systemPrompt = "";
-
-      // 🟦 CHAT MODE (no document)
-      if (!selectedMaterial) {
-        systemPrompt = `
-You are Luna, a friendly AI assistant.
-
-Behavior:
-- Respond normally like ChatGPT
-- If user greets, greet back
-- If user asks study questions, tell them to select a document
-- Be natural and helpful
-`;
-      }
-
-      // 🟩 STUDY MODE (document selected)
-      else {
-        const chunks = chunkText(selectedMaterial.content);
-
-        systemPrompt = `
-You are Luna, a smart study assistant.
-
-RULES:
-- Answer using ONLY the document chunks below
-- Be friendly and clear
-- If the answer is not found, say:
-"I couldn’t find this in the document."
-
-DOCUMENT CHUNKS:
-${chunks.slice(0, 6).join("\n\n---\n\n")}
-`;
-      }
-
-      const res = await fetch("https://api.openai.com/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${import.meta.env.VITE_OPENAI_API_KEY}`,
-        },
-        body: JSON.stringify({
-          model: "gpt-4o-mini",
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: userText },
-          ],
-        }),
-      });
+      const res = await fetch(
+        "https://api.openai.com/v1/chat/completions",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${import.meta.env.VITE_OPENAI_API_KEY}`,
+          },
+          body: JSON.stringify({
+            model: "gpt-4o-mini",
+            messages: [
+              {
+                role: "system",
+                content:
+                  "You are Luna, a friendly AI assistant. Respond naturally like ChatGPT.",
+              },
+              {
+                role: "user",
+                content: userText,
+              },
+            ],
+          }),
+        }
+      );
 
       const data = await res.json();
       const aiText =
         data.choices?.[0]?.message?.content ??
-        "Sorry, something went wrong.";
+        "Sorry, I couldn’t reply.";
 
       setMessages((prev) => [
         ...prev,
@@ -143,7 +110,7 @@ ${chunks.slice(0, 6).join("\n\n---\n\n")}
         {
           id: Date.now(),
           type: "ai",
-          text: "Something went wrong while answering.",
+          text: "Something went wrong 😢",
           timestamp: timeNow(),
         },
       ]);
@@ -157,34 +124,12 @@ ${chunks.slice(0, 6).join("\n\n---\n\n")}
       {/* HEADER */}
       <div className="px-4 pt-6 pb-3 border-b">
         <div className="flex items-center gap-3">
-          {onNavigate && <BackButton onBack={() => onNavigate("home")} />}
+          {onNavigate && (
+            <BackButton onBack={() => onNavigate("home")} />
+          )}
           <Sparkles className="w-5 h-5 text-primary" />
-          <div>
-            <h1 className="font-bold">AI Chat</h1>
-            <p className="text-xs text-muted-foreground">
-              Smart chat • Study-safe answers
-            </p>
-          </div>
+          <h1 className="font-bold">AI Chat</h1>
         </div>
-
-        {selectedMaterial ? (
-          <div className="mt-3 flex items-center gap-2 bg-muted rounded-lg px-3 py-2">
-            <FileText className="w-4 h-4" />
-            <span className="text-sm truncate flex-1">
-              {selectedMaterial.name}
-            </span>
-            <button onClick={() => setSelectedMaterial(null)}>
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-        ) : (
-          <button
-            onClick={() => setShowMaterialSelector(true)}
-            className="mt-3 w-full bg-muted rounded-lg py-2 text-sm"
-          >
-            Select Study Material
-          </button>
-        )}
       </div>
 
       {/* MESSAGES */}
@@ -197,20 +142,26 @@ ${chunks.slice(0, 6).join("\n\n---\n\n")}
             timestamp={m.timestamp}
           />
         ))}
+
         {isTyping && (
-          <ChatBubble message="Typing…" type="ai" timestamp={timeNow()} />
+          <ChatBubble
+            message="Typing…"
+            type="ai"
+            timestamp={timeNow()}
+          />
         )}
+
         <div ref={messagesEndRef} />
       </div>
 
       {/* INPUT */}
-      <div className="px-4 pb-28 pt-3 border-t">
+      <div className="px-4 pb-6 pt-3 border-t">
         <div className="flex gap-2">
           <InputField
             value={inputValue}
             onChange={setInputValue}
             onSubmit={handleSend}
-            placeholder="Ask me anything..."
+            placeholder="Ask anything..."
           />
           <button
             onClick={handleSend}
@@ -220,28 +171,6 @@ ${chunks.slice(0, 6).join("\n\n---\n\n")}
           </button>
         </div>
       </div>
-
-      {/* MATERIAL SELECTOR */}
-      <Modal
-        isOpen={showMaterialSelector}
-        onClose={() => setShowMaterialSelector(false)}
-        title="Select Study Material"
-      >
-        <div className="space-y-2">
-          {materials.map((m) => (
-            <button
-              key={m.id}
-              onClick={() => {
-                setSelectedMaterial(m);
-                setShowMaterialSelector(false);
-              }}
-              className="w-full text-left p-3 rounded-lg border hover:bg-muted"
-            >
-              {m.name}
-            </button>
-          ))}
-        </div>
-      </Modal>
     </div>
   );
 }
