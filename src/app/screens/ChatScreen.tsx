@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Send, Sparkles, FileText, File as FileIcon, BookOpen, X } from "lucide-react";
+import { Send, Sparkles, FileText, BookOpen, X } from "lucide-react";
 import { BackButton } from "../components/BackButton";
 import { Modal } from "../components/Modal";
 import { InputField } from "../components/InputField";
@@ -33,6 +33,13 @@ export function ChatScreen({
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  const time = () =>
+    new Date().toLocaleTimeString("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    });
+
   /* =========================
      INITIAL MESSAGE
   ========================= */
@@ -41,10 +48,9 @@ export function ChatScreen({
       {
         id: Date.now(),
         text: `Hello${user?.name ? ` ${user.name}` : ""}!  
-Select a study material and ask me anything.  
-I answer **only** from your uploaded documents.`,
+Select a study material and ask me anything.`,
         type: "ai",
-        timestamp: getTime(),
+        timestamp: time(),
       },
     ]);
   }, []);
@@ -54,14 +60,7 @@ I answer **only** from your uploaded documents.`,
   ========================= */
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
-
-  const getTime = () =>
-    new Date().toLocaleTimeString("en-US", {
-      hour: "numeric",
-      minute: "2-digit",
-      hour12: true,
-    });
+  }, [messages, isTyping]);
 
   /* =========================
      SEND MESSAGE
@@ -69,14 +68,14 @@ I answer **only** from your uploaded documents.`,
   const handleSend = () => {
     if (!inputValue.trim()) return;
 
-    const userMessage: Message = {
+    const userMsg: Message = {
       id: Date.now(),
       text: inputValue,
       type: "user",
-      timestamp: getTime(),
+      timestamp: time(),
     };
 
-    setMessages((prev) => [...prev, userMessage]);
+    setMessages((prev) => [...prev, userMsg]);
     setInputValue("");
 
     if (!selectedMaterial) {
@@ -88,21 +87,21 @@ I answer **only** from your uploaded documents.`,
             id: Date.now(),
             text: "Please select a study material first.",
             type: "ai",
-            timestamp: getTime(),
+            timestamp: time(),
             materialOptions: materials,
             isPromptToSelectMaterial: true,
           },
         ]);
         setIsTyping(false);
-      }, 600);
+      }, 500);
       return;
     }
 
-    answerFromDocument(inputValue, selectedMaterial);
+    answerFromDocument(userMsg.text, selectedMaterial);
   };
 
   /* =========================
-     DOCUMENT-ONLY ANSWER
+     ANSWER FROM DOCUMENT ONLY
   ========================= */
   const answerFromDocument = (
     question: string,
@@ -111,41 +110,39 @@ I answer **only** from your uploaded documents.`,
     setIsTyping(true);
 
     setTimeout(() => {
-      let response = "";
+      let reply = "";
 
-      if (!material.processed || !material.content) {
-        response = `I couldn't read the text from "${material.name}".  
-Please upload a text-based PDF or TXT file.`;
+      if (!material.content) {
+        reply = `I couldn't read the text from "${material.name}".`;
+      } else if (
+        !material.content
+          .toLowerCase()
+          .includes(question.toLowerCase().split(" ")[0])
+      ) {
+        reply = `I can’t find this information in "${material.name}".`;
       } else {
-        const content = material.content.toLowerCase();
-        const query = question.toLowerCase();
-
-        if (!content.includes(query.split(" ")[0])) {
-          response = `I can’t find this information in "${material.name}".  
-Try asking about something that appears in the document.`;
-        } else {
-          response = `From "${material.name}":\n\n${material.content
-            .split("\n")
-            .slice(0, 4)
-            .join("\n")}`;
-        }
+        reply = `From "${material.name}":\n\n${material.content
+          .split("\n")
+          .slice(0, 4)
+          .join("\n")}`;
       }
 
       setMessages((prev) => [
         ...prev,
         {
           id: Date.now(),
-          text: response,
+          text: reply,
           type: "ai",
-          timestamp: getTime(),
+          timestamp: time(),
         },
       ]);
+
       setIsTyping(false);
-    }, 900);
+    }, 800);
   };
 
   /* =========================
-     MATERIAL SELECT
+     SELECT MATERIAL
   ========================= */
   const handleMaterialSelect = (material: UploadedMaterial) => {
     setSelectedMaterial(material);
@@ -157,14 +154,11 @@ Try asking about something that appears in the document.`;
         id: Date.now(),
         text: `Now answering from "${material.name}".`,
         type: "ai",
-        timestamp: getTime(),
+        timestamp: time(),
       },
     ]);
   };
 
-  /* =========================
-     UI
-  ========================= */
   return (
     <div className="flex flex-col h-screen bg-background">
       {/* HEADER */}
@@ -208,35 +202,22 @@ Try asking about something that appears in the document.`;
         )}
       </div>
 
-      {/* MESSAGES (SCROLL FIXED) */}
+      {/* MESSAGES — SCROLL WORKS HERE */}
       <div className="flex-1 min-h-0 overflow-y-auto px-6 py-4">
         {messages.map((m) => (
-          <div key={m.id}>
-            <ChatBubble
-              message={m.text}
-              type={m.type}
-              timestamp={m.timestamp}
-            />
-
-            {m.isPromptToSelectMaterial &&
-              m.materialOptions?.map((mat) => (
-                <button
-                  key={mat.id}
-                  onClick={() => handleMaterialSelect(mat)}
-                  className="w-full border rounded-xl p-3 mt-2 text-left"
-                >
-                  <FileText className="inline w-4 h-4 mr-2 text-primary" />
-                  {mat.name}
-                </button>
-              ))}
-          </div>
+          <ChatBubble
+            key={m.id}
+            message={m.text}
+            type={m.type}
+            timestamp={m.timestamp}
+          />
         ))}
 
         {isTyping && (
           <ChatBubble
             message="Typing..."
             type="ai"
-            timestamp={getTime()}
+            timestamp={time()}
           />
         )}
 
