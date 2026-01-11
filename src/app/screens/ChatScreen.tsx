@@ -1,21 +1,10 @@
-import React, { useState, useRef, useEffect } from "react";
-import { ChatBubble } from "../components/ChatBubble";
-import { InputField } from "../components/InputField";
+import React, { useEffect, useRef, useState } from "react";
+import { Send, Sparkles, FileText, X } from "lucide-react";
 import { BackButton } from "../components/BackButton";
+import { InputField } from "../components/InputField";
+import { ChatBubble } from "../components/ChatBubble";
 import { Modal } from "../components/Modal";
-import {
-  Send,
-  Sparkles,
-  FileText,
-  File as FileIcon,
-  BookOpen,
-  ArrowDown,
-} from "lucide-react";
-import { useUser } from "../context/UserContext";
-import {
-  useMaterials,
-  UploadedMaterial,
-} from "../context/MaterialsContext";
+import { useMaterials, UploadedMaterial } from "../context/MaterialsContext";
 
 interface Message {
   id: number;
@@ -29,117 +18,182 @@ export function ChatScreen({
 }: {
   onNavigate?: (screen: string) => void;
 }) {
-  const { user } = useUser();
   const { materials } = useMaterials();
-
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: 1,
-      text: `Hello${user?.name ? ` ${user.name}` : ""}! Select a study material and ask me anything.`,
-      type: "ai",
-      timestamp: new Date().toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-      }),
-    },
-  ]);
-
-  const [inputValue, setInputValue] = useState("");
   const [selectedMaterial, setSelectedMaterial] =
     useState<UploadedMaterial | null>(null);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [inputValue, setInputValue] = useState("");
+  const [isTyping, setIsTyping] = useState(false);
   const [showMaterialSelector, setShowMaterialSelector] = useState(false);
-  const [showScrollButton, setShowScrollButton] = useState(false);
 
-  const chatContainerRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  /* ✅ AUTO SCROLL WHEN MESSAGE ADDED */
+  /* =========================
+     AUTO SCROLL
+  ========================= */
   useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
-
-  const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
+  }, [messages, isTyping]);
 
-  /* ✅ SHOW SCROLL BUTTON WHEN USER SCROLLS UP */
-  const handleScroll = () => {
-    const el = chatContainerRef.current;
-    if (!el) return;
+  /* =========================
+     INITIAL MESSAGE
+  ========================= */
+  useEffect(() => {
+    setMessages([
+      {
+        id: 1,
+        text: "Hello! Select a study material and ask me anything.",
+        type: "ai",
+        timestamp: timeNow(),
+      },
+    ]);
+  }, []);
 
-    const isNearBottom =
-      el.scrollHeight - el.scrollTop - el.clientHeight < 120;
-
-    setShowScrollButton(!isNearBottom);
-  };
-
-  const handleSend = () => {
-    if (!inputValue.trim()) return;
-
-    const now = new Date().toLocaleTimeString([], {
-      hour: "2-digit",
+  const timeNow = () =>
+    new Date().toLocaleTimeString("en-US", {
+      hour: "numeric",
       minute: "2-digit",
+      hour12: true,
     });
 
-    setMessages((prev) => [
-      ...prev,
-      { id: Date.now(), text: inputValue, type: "user", timestamp: now },
-    ]);
+  /* =========================
+     SEND MESSAGE
+  ========================= */
+  const handleSend = async () => {
+    if (!inputValue.trim()) return;
 
-    setTimeout(() => {
+    const userMessage: Message = {
+      id: Date.now(),
+      text: inputValue,
+      type: "user",
+      timestamp: timeNow(),
+    };
+
+    setMessages((prev) => [...prev, userMessage]);
+    setInputValue("");
+
+    if (!selectedMaterial) {
       setMessages((prev) => [
         ...prev,
         {
-          id: Date.now() + 1,
-          text: selectedMaterial
-            ? `I can answer using "${selectedMaterial.name}".`
-            : "Please select a study material first.",
+          id: Date.now(),
+          text: "Please select a study material first.",
           type: "ai",
-          timestamp: now,
+          timestamp: timeNow(),
         },
       ]);
-    }, 600);
+      return;
+    }
 
-    setInputValue("");
+    setIsTyping(true);
+
+    try {
+      const response = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${import.meta.env.VITE_OPENAI_API_KEY}`,
+        },
+        body: JSON.stringify({
+          model: "gpt-4o-mini",
+          messages: [
+            {
+              role: "system",
+              content: `
+You are a strict study assistant.
+
+RULES:
+- Answer ONLY using the document text below.
+- If the answer is NOT in the document, say:
+"I cannot find this information in the document."
+- Do NOT use external knowledge.
+
+DOCUMENT:
+${selectedMaterial.content}
+              `,
+            },
+            {
+              role: "user",
+              content: userMessage.text,
+            },
+          ],
+        }),
+      });
+
+      const data = await response.json();
+      const aiText =
+        data.choices?.[0]?.message?.content ||
+        "I cannot find this information in the document.";
+
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now(),
+          text: aiText,
+          type: "ai",
+          timestamp: timeNow(),
+        },
+      ]);
+    } catch {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now(),
+          text: "Something went wrong while answering.",
+          type: "ai",
+          timestamp: timeNow(),
+        },
+      ]);
+    } finally {
+      setIsTyping(false);
+    }
   };
 
+  /* =========================
+     UI
+  ========================= */
   return (
     <div className="flex flex-col h-screen bg-background">
-      {/* HEADER */}
-      <div className="flex-shrink-0 px-6 pt-6 pb-4 bg-gradient-to-r from-primary/20 to-secondary/20 rounded-b-2xl relative">
-        {onNavigate && (
-          <div className="absolute top-6 left-6">
-            <BackButton onBack={() => onNavigate("home")} />
-          </div>
-        )}
-
+      {/* HEADER (SHORT) */}
+      <div className="px-4 pt-6 pb-3 border-b border-border">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-gradient-to-br from-primary to-secondary rounded-full flex items-center justify-center">
-            <Sparkles className="w-5 h-5 text-white" />
-          </div>
-          <div>
-            <h1 className="text-lg font-bold">AI Study Chat</h1>
-            <p className="text-xs text-muted-foreground">
-              Answers from your materials only
-            </p>
+          {onNavigate && (
+            <BackButton onBack={() => onNavigate("home")} />
+          )}
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-5 h-5 text-primary" />
+            <div>
+              <h1 className="font-bold">AI Study Chat</h1>
+              <p className="text-xs text-muted-foreground">
+                Answers from your materials only
+              </p>
+            </div>
           </div>
         </div>
 
-        <button
-          onClick={() => setShowMaterialSelector(true)}
-          className="mt-3 w-full bg-card border border-border rounded-xl py-2 text-sm font-semibold flex items-center justify-center gap-2"
-        >
-          <BookOpen className="w-4 h-4" />
-          {selectedMaterial ? selectedMaterial.name : "Select Study Material"}
-        </button>
+        {/* SELECTED MATERIAL */}
+        {selectedMaterial ? (
+          <div className="mt-3 flex items-center gap-2 bg-muted rounded-lg px-3 py-2">
+            <FileText className="w-4 h-4 text-primary" />
+            <span className="text-sm truncate flex-1">
+              {selectedMaterial.name}
+            </span>
+            <button onClick={() => setSelectedMaterial(null)}>
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={() => setShowMaterialSelector(true)}
+            className="mt-3 w-full bg-muted rounded-lg py-2 text-sm"
+          >
+            Select Study Material
+          </button>
+        )}
       </div>
 
-      {/* CHAT AREA (SCROLLABLE) */}
-      <div
-        ref={chatContainerRef}
-        onScroll={handleScroll}
-        className="flex-1 overflow-y-auto px-6 py-4 relative"
-      >
+      {/* MESSAGES (SCROLLABLE) */}
+      <div className="flex-1 overflow-y-auto px-4 py-4">
         {messages.map((msg) => (
           <ChatBubble
             key={msg.id}
@@ -149,68 +203,55 @@ export function ChatScreen({
           />
         ))}
 
-        <div ref={messagesEndRef} />
-
-        {/* ⬇ SCROLL TO BOTTOM BUTTON */}
-        {showScrollButton && (
-          <button
-            onClick={scrollToBottom}
-            className="fixed bottom-28 right-6 bg-primary text-primary-foreground p-3 rounded-full shadow-lg"
-          >
-            <ArrowDown className="w-5 h-5" />
-          </button>
+        {isTyping && (
+          <ChatBubble
+            message="Typing..."
+            type="ai"
+            timestamp={timeNow()}
+          />
         )}
+
+        <div ref={messagesEndRef} />
       </div>
 
       {/* INPUT (ABOVE BOTTOM NAV) */}
-      <div className="px-6 py-4 border-t bg-background mb-16">
+      <div className="px-4 pb-28 pt-3 border-t border-border bg-background">
         <div className="flex gap-2">
           <InputField
             value={inputValue}
             onChange={setInputValue}
-            placeholder="Ask me anything..."
             onSubmit={handleSend}
+            placeholder="Ask me anything..."
           />
           <button
             onClick={handleSend}
-            className="w-12 h-12 rounded-xl bg-primary text-primary-foreground flex items-center justify-center"
+            className="w-12 h-12 bg-primary rounded-xl flex items-center justify-center"
           >
-            <Send className="w-5 h-5" />
+            <Send className="w-5 h-5 text-white" />
           </button>
         </div>
       </div>
 
-      {/* MATERIAL SELECT MODAL */}
+      {/* MATERIAL SELECTOR */}
       <Modal
         isOpen={showMaterialSelector}
         onClose={() => setShowMaterialSelector(false)}
         title="Select Study Material"
       >
-        {materials.length === 0 ? (
-          <p className="text-sm text-muted-foreground text-center py-6">
-            No materials uploaded yet.
-          </p>
-        ) : (
-          <div className="space-y-2">
-            {materials.map((m) => (
-              <button
-                key={m.id}
-                onClick={() => {
-                  setSelectedMaterial(m);
-                  setShowMaterialSelector(false);
-                }}
-                className="w-full flex items-center gap-3 border rounded-xl p-3"
-              >
-                {m.type === "pdf" ? (
-                  <FileText className="w-5 h-5" />
-                ) : (
-                  <FileIcon className="w-5 h-5" />
-                )}
-                <span className="truncate">{m.name}</span>
-              </button>
-            ))}
-          </div>
-        )}
+        <div className="space-y-2">
+          {materials.map((m) => (
+            <button
+              key={m.id}
+              onClick={() => {
+                setSelectedMaterial(m);
+                setShowMaterialSelector(false);
+              }}
+              className="w-full text-left p-3 rounded-lg border hover:bg-muted"
+            >
+              {m.name}
+            </button>
+          ))}
+        </div>
       </Modal>
     </div>
   );
