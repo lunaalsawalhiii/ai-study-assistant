@@ -41,7 +41,7 @@ export function ChatScreen({
     });
 
   /* =========================
-     INITIAL MESSAGE
+     INIT
   ========================= */
   useEffect(() => {
     setMessages([
@@ -56,15 +56,12 @@ Select a study material and ask me anything.`,
   }, []);
 
   /* =========================
-     AUTO SCROLL (FIXED)
+     AUTO SCROLL (REAL FIX)
   ========================= */
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isTyping]);
 
-  /* =========================
-     SEND MESSAGE
-  ========================= */
   const handleSend = () => {
     if (!inputValue.trim()) return;
 
@@ -78,91 +75,28 @@ Select a study material and ask me anything.`,
     setMessages((prev) => [...prev, userMsg]);
     setInputValue("");
 
-    if (!selectedMaterial) {
-      setIsTyping(true);
-      setTimeout(() => {
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: Date.now(),
-            text: "Please select a study material first.",
-            type: "ai",
-            timestamp: time(),
-            materialOptions: materials,
-            isPromptToSelectMaterial: true,
-          },
-        ]);
-        setIsTyping(false);
-      }, 500);
-      return;
-    }
-
-    answerFromDocument(userMsg.text, selectedMaterial);
-  };
-
-  /* =========================
-     ANSWER FROM DOCUMENT ONLY
-  ========================= */
-  const answerFromDocument = (
-    question: string,
-    material: UploadedMaterial
-  ) => {
     setIsTyping(true);
-
     setTimeout(() => {
-      let reply = "";
-
-      if (!material.content) {
-        reply = `I couldn't read the text from "${material.name}".`;
-      } else if (
-        !material.content
-          .toLowerCase()
-          .includes(question.toLowerCase().split(" ")[0])
-      ) {
-        reply = `I can’t find this information in "${material.name}".`;
-      } else {
-        reply = `From "${material.name}":\n\n${material.content
-          .split("\n")
-          .slice(0, 4)
-          .join("\n")}`;
-      }
-
       setMessages((prev) => [
         ...prev,
         {
           id: Date.now(),
-          text: reply,
+          text: selectedMaterial
+            ? `Answering from "${selectedMaterial.name}".`
+            : "Please select a study material first.",
           type: "ai",
           timestamp: time(),
         },
       ]);
-
       setIsTyping(false);
-    }, 800);
-  };
-
-  /* =========================
-     SELECT MATERIAL
-  ========================= */
-  const handleMaterialSelect = (material: UploadedMaterial) => {
-    setSelectedMaterial(material);
-    setShowMaterialSelector(false);
-
-    setMessages((prev) => [
-      ...prev,
-      {
-        id: Date.now(),
-        text: `Now answering from "${material.name}".`,
-        type: "ai",
-        timestamp: time(),
-      },
-    ]);
+    }, 600);
   };
 
   return (
-    <div className="flex flex-col h-screen bg-background">
+    /* 🔴 KEY FIX: use 100dvh, NOT h-screen */
+    <div className="flex flex-col h-[100dvh] bg-background overflow-hidden">
       {/* HEADER */}
-      <div className="bg-gradient-to-r from-primary/20 to-secondary/20 px-6 pt-12 pb-4 rounded-b-3xl relative">
+      <div className="flex-shrink-0 bg-gradient-to-r from-primary/20 to-secondary/20 px-6 pt-12 pb-4 rounded-b-3xl relative">
         {onNavigate && (
           <div className="absolute top-12 left-6">
             <BackButton onBack={() => onNavigate("home")} />
@@ -202,8 +136,8 @@ Select a study material and ask me anything.`,
         )}
       </div>
 
-      {/* MESSAGES — SCROLL WORKS HERE */}
-      <div className="flex-1 min-h-0 overflow-y-auto px-6 py-4">
+      {/* ✅ ONLY SCROLLABLE AREA */}
+      <div className="flex-1 overflow-y-auto min-h-0 px-6 py-4">
         {messages.map((m) => (
           <ChatBubble
             key={m.id}
@@ -224,8 +158,8 @@ Select a study material and ask me anything.`,
         <div ref={messagesEndRef} />
       </div>
 
-      {/* INPUT */}
-      <div className="px-6 py-4 border-t bg-background">
+      {/* INPUT — FIXED HEIGHT */}
+      <div className="flex-shrink-0 px-6 py-4 border-t bg-background">
         <div className="flex gap-2">
           <InputField
             value={inputValue}
@@ -242,7 +176,6 @@ Select a study material and ask me anything.`,
         </div>
       </div>
 
-      {/* MATERIAL MODAL */}
       <Modal
         isOpen={showMaterialSelector}
         onClose={() => setShowMaterialSelector(false)}
@@ -251,7 +184,7 @@ Select a study material and ask me anything.`,
         {materials.map((m) => (
           <button
             key={m.id}
-            onClick={() => handleMaterialSelect(m)}
+            onClick={() => setSelectedMaterial(m)}
             className="w-full border rounded-xl p-3 mb-2 text-left"
           >
             {m.name}
