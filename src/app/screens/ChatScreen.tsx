@@ -1,20 +1,12 @@
 import React, { useState, useRef } from "react";
 import { Card } from "../components/Card";
-import { Button } from "../components/Button";
 import { Modal } from "../components/Modal";
 import { BackButton } from "../components/BackButton";
-import {
-  Upload,
-  FileText,
-  File as FileIcon,
-  Trash2,
-  CheckCircle2,
-} from "lucide-react";
+import { Upload } from "lucide-react";
 import { useMaterials } from "../context/MaterialsContext";
 import { AISuggestEventModal } from "../components/AISuggestEventModal";
 import { detectEventsFromText, DetectedEvent } from "../utils/eventDetection";
 import { projectId, publicAnonKey } from "/utils/supabase/info";
-import { useUser } from "../context/UserContext";
 
 /* =========================
    FILE → BASE64
@@ -36,31 +28,22 @@ export function UploadScreen({
 }: {
   onNavigate?: (screen: string) => void;
 }) {
-  const { materials, addMaterial, deleteMaterial } = useMaterials();
-  const { user, isDemoMode } = useUser();
+  const { materials, addMaterial } = useMaterials();
 
   const [showSuccessModal, setShowSuccessModal] = useState(false);
-  const [showLimitModal, setShowLimitModal] = useState(false);
   const [uploadingFileName, setUploadingFileName] = useState("");
   const [suggestedEvent, setSuggestedEvent] =
     useState<DetectedEvent | null>(null);
   const [showSuggestModal, setShowSuggestModal] = useState(false);
-  const [pendingSuggestions, setPendingSuggestions] = useState<
-    DetectedEvent[]
-  >([]);
-  const [currentSuggestionIndex, setCurrentSuggestionIndex] =
-    useState(0);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const MAX_FREE_DOCUMENTS = 10;
 
-  const formatFileSize = (bytes: number): string => {
+  const formatFileSize = (bytes: number) => {
     const k = 1024;
     const sizes = ["Bytes", "KB", "MB", "GB"];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return `${Math.round((bytes / Math.pow(k, i)) * 100) / 100} ${
-      sizes[i]
-    }`;
+    return `${Math.round((bytes / Math.pow(k, i)) * 100) / 100} ${sizes[i]}`;
   };
 
   /* =========================
@@ -69,25 +52,11 @@ export function UploadScreen({
   const handleFileSelect = async (
     event: React.ChangeEvent<HTMLInputElement>
   ) => {
-    const files = event.target.files;
-    if (!files || files.length === 0) return;
-
-    const file = files[0];
+    const file = event.target.files?.[0];
+    if (!file) return;
 
     if (materials.length >= MAX_FREE_DOCUMENTS) {
-      setShowLimitModal(true);
-      return;
-    }
-
-    const validTypes = [
-      "application/pdf",
-      "text/plain",
-      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-      "application/msword",
-    ];
-
-    if (!validTypes.includes(file.type)) {
-      alert("Only PDF, TXT, DOC, and DOCX files are supported");
+      alert("Free plan limit reached");
       return;
     }
 
@@ -95,7 +64,7 @@ export function UploadScreen({
       setUploadingFileName(file.name);
       setShowSuccessModal(true);
 
-      // 1️⃣ Convert file to base64
+      // 1️⃣ Convert to base64
       const base64Image = await fileToBase64(file);
 
       // 2️⃣ Send to Supabase OCR
@@ -116,26 +85,24 @@ export function UploadScreen({
         throw new Error(data.error || "OCR failed");
       }
 
-      // 3️⃣ Save material with OCR text
+      // 3️⃣ Save material
       addMaterial({
         id: Date.now(),
         name: file.name,
-        type: file.type === "application/pdf" ? "pdf" : "txt",
+        type: "pdf",
         date: "Just now",
         size: formatFileSize(file.size),
         file,
-        content: data.text,
-        processed: true,
-        processingError: null,
+        content: data.text || "",
+        processed: Boolean(data.text),
+        processingError: data.text ? null : "OCR returned no text",
         usedOCR: true,
       });
 
       // 4️⃣ Detect events
-      const detectedEvents = detectEventsFromText(data.text);
-      if (detectedEvents.length > 0) {
-        setPendingSuggestions(detectedEvents);
-        setCurrentSuggestionIndex(0);
-        setSuggestedEvent(detectedEvents[0]);
+      const events = detectEventsFromText(data.text || "");
+      if (events.length > 0) {
+        setSuggestedEvent(events[0]);
         setShowSuggestModal(true);
       }
     } catch (err: any) {
@@ -147,11 +114,6 @@ export function UploadScreen({
     }
   };
 
-  const handleUploadClick = () => fileInputRef.current?.click();
-
-  /* =========================
-     UI
-  ========================= */
   return (
     <div className="min-h-screen pb-20 bg-background">
       <div className="bg-gradient-to-br from-primary/20 to-secondary/20 px-6 pt-12 pb-6 rounded-b-3xl relative">
@@ -168,7 +130,7 @@ export function UploadScreen({
 
       <div className="px-6 mt-6">
         <Card
-          onClick={handleUploadClick}
+          onClick={() => fileInputRef.current?.click()}
           className="border-2 border-dashed cursor-pointer"
         >
           <div className="flex flex-col items-center py-8 gap-3">
@@ -176,11 +138,12 @@ export function UploadScreen({
             <p>Upload New Material</p>
           </div>
         </Card>
+
         <input
           ref={fileInputRef}
           type="file"
-          onChange={handleFileSelect}
           accept=".pdf,.txt,.doc,.docx"
+          onChange={handleFileSelect}
           className="hidden"
         />
       </div>
