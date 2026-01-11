@@ -1,8 +1,8 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Send, Sparkles } from "lucide-react";
-import { BackButton } from "../components/BackButton";
-import { InputField } from "../components/InputField";
 import { ChatBubble } from "../components/ChatBubble";
+import { InputField } from "../components/InputField";
+import { useMaterials } from "../context/MaterialsContext";
 
 interface Message {
   id: number;
@@ -11,15 +11,13 @@ interface Message {
   timestamp: string;
 }
 
-export function ChatScreen({
-  onNavigate,
-}: {
-  onNavigate?: (screen: string) => void;
-}) {
+export function ChatScreen() {
+  const { materials } = useMaterials();
+  const documentText = materials[0]?.content || "";
+
   const [messages, setMessages] = useState<Message[]>([]);
-  const [inputValue, setInputValue] = useState("");
-  const [isTyping, setIsTyping] = useState(false);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [input, setInput] = useState("");
+  const bottomRef = useRef<HTMLDivElement>(null);
 
   const timeNow = () =>
     new Date().toLocaleTimeString("en-US", {
@@ -28,111 +26,80 @@ export function ChatScreen({
       hour12: true,
     });
 
-  // Initial greeting
   useEffect(() => {
     setMessages([
       {
         id: 1,
         type: "ai",
-        text:
-          "Hi 👋 I’m **Luna**, your AI assistant.\n\n" +
-          "You can talk to me like ChatGPT. Ask me anything 🙂",
         timestamp: timeNow(),
+        text:
+          "Hi 👋 I’m **Luna**, an AI study assistant.\n\n" +
+          "I help explain Artificial Intelligence topics using your study material.",
       },
     ]);
   }, []);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, isTyping]);
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
 
-  const handleSend = async () => {
-    if (!inputValue.trim()) return;
+  const answerFromDocument = (question: string) => {
+    if (!documentText) {
+      return "Please upload an AI document so I can help you study.";
+    }
 
-    const userText = inputValue;
-    setInputValue("");
+    const lowerDoc = documentText.toLowerCase();
+    const lowerQ = question.toLowerCase();
 
-    setMessages((prev) => [
-      ...prev,
+    if (lowerQ.includes("hi") || lowerQ.includes("hello")) {
+      return "Hello 😊 I’m ready to help you study Artificial Intelligence.";
+    }
+
+    if (lowerDoc.includes("artificial intelligence") && lowerQ.includes("what")) {
+      return "Artificial Intelligence is the field of computer science that focuses on creating systems capable of intelligent behavior, such as learning, reasoning, and problem-solving.";
+    }
+
+    if (lowerQ.includes("machine learning")) {
+      return "Machine Learning is a subset of Artificial Intelligence that allows systems to learn from data and improve their performance without being explicitly programmed.";
+    }
+
+    if (lowerQ.includes("ai")) {
+      return "Based on the document, Artificial Intelligence involves simulating human intelligence in machines to perform tasks like decision-making and learning.";
+    }
+
+    return "I couldn’t find a direct answer in the document, but you can ask about AI concepts like machine learning, intelligence, or applications.";
+  };
+
+  const send = () => {
+    if (!input.trim()) return;
+
+    const userText = input;
+    setInput("");
+
+    setMessages((m) => [
+      ...m,
       {
         id: Date.now(),
         type: "user",
         text: userText,
         timestamp: timeNow(),
       },
+      {
+        id: Date.now() + 1,
+        type: "ai",
+        text: answerFromDocument(userText),
+        timestamp: timeNow(),
+      },
     ]);
-
-    setIsTyping(true);
-
-    try {
-      const res = await fetch(
-        "https://api.openai.com/v1/chat/completions",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${import.meta.env.VITE_OPENAI_API_KEY}`,
-          },
-          body: JSON.stringify({
-            model: "gpt-4o-mini",
-            messages: [
-              {
-                role: "system",
-                content:
-                  "You are Luna, a friendly AI assistant. Respond naturally like ChatGPT.",
-              },
-              {
-                role: "user",
-                content: userText,
-              },
-            ],
-          }),
-        }
-      );
-
-      const data = await res.json();
-      const aiText =
-        data.choices?.[0]?.message?.content ??
-        "Sorry, I couldn’t reply.";
-
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: Date.now(),
-          type: "ai",
-          text: aiText,
-          timestamp: timeNow(),
-        },
-      ]);
-    } catch {
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: Date.now(),
-          type: "ai",
-          text: "Something went wrong 😢",
-          timestamp: timeNow(),
-        },
-      ]);
-    } finally {
-      setIsTyping(false);
-    }
   };
 
   return (
     <div className="flex flex-col h-screen bg-background">
-      {/* HEADER */}
-      <div className="px-4 pt-6 pb-3 border-b">
-        <div className="flex items-center gap-3">
-          {onNavigate && (
-            <BackButton onBack={() => onNavigate("home")} />
-          )}
-          <Sparkles className="w-5 h-5 text-primary" />
-          <h1 className="font-bold">AI Chat</h1>
-        </div>
+      <div className="px-4 pt-6 pb-3 border-b flex items-center gap-2">
+        <Sparkles className="w-5 h-5 text-primary" />
+        <h1 className="font-bold">AI Study Chat</h1>
       </div>
 
-      {/* MESSAGES */}
       <div className="flex-1 overflow-y-auto px-4 py-4">
         {messages.map((m) => (
           <ChatBubble
@@ -142,34 +109,22 @@ export function ChatScreen({
             timestamp={m.timestamp}
           />
         ))}
-
-        {isTyping && (
-          <ChatBubble
-            message="Typing…"
-            type="ai"
-            timestamp={timeNow()}
-          />
-        )}
-
-        <div ref={messagesEndRef} />
+        <div ref={bottomRef} />
       </div>
 
-      {/* INPUT */}
-      <div className="px-4 pb-6 pt-3 border-t">
-        <div className="flex gap-2">
-          <InputField
-            value={inputValue}
-            onChange={setInputValue}
-            onSubmit={handleSend}
-            placeholder="Ask anything..."
-          />
-          <button
-            onClick={handleSend}
-            className="w-12 h-12 bg-primary rounded-xl flex items-center justify-center"
-          >
-            <Send className="w-5 h-5 text-white" />
-          </button>
-        </div>
+      <div className="p-4 border-t flex gap-2">
+        <InputField
+          value={input}
+          onChange={setInput}
+          onSubmit={send}
+          placeholder="Ask about Artificial Intelligence..."
+        />
+        <button
+          onClick={send}
+          className="w-12 h-12 bg-primary rounded-xl flex items-center justify-center"
+        >
+          <Send className="text-white" />
+        </button>
       </div>
     </div>
   );
