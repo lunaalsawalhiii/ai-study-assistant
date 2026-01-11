@@ -1,0 +1,237 @@
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  --font-size: 16px;
+  --font-family: 'Poppins', sans-serif;
+  
+  /* Pastel Color Palette - Light Mode */
+  --background: #FAFBFE;
+  --foreground: #2D3748;
+  --card: #FFFFFF;
+  --card-foreground: #2D3748;
+  --popover: #FFFFFF;
+  --popover-foreground: #2D3748;
+  
+  /* Pastel Blues */
+  --primary: #A8C5E8;
+  --primary-foreground: #1A365D;
+  --primary-hover: #8FB4E0;
+  
+  /* Pastel Pinks */
+  --secondary: #FFD6E8;
+  --secondary-foreground: #5A1A3D;
+  --secondary-hover: #FFC0DC;
+  
+  /* Pastel Yellows */
+  --accent: #FFF4CC;
+  --accent-foreground: #5A4A1A;
+  --accent-hover: #FFEDB3;
+  
+  /* Additional Pastel Colors for Calendar Events */
+  --pastel-coral: #FFCFBA;
+  --pastel-coral-foreground: #5A2A1A;
+  --pastel-green: #D4E8D4;
+  --pastel-green-foreground: #2A5A2A;
+  --pastel-purple: #E8D4F8;
+  --pastel-purple-foreground: #3D1A5A;
+  --pastel-lavender: #E6D9F5;
+  --pastel-lavender-foreground: #4A2A6B;
+  
+  --muted: #F7FAFC;
+  --muted-foreground: #718096;
+  --destructive: #FEB2B2;
+  --destructive-foreground: #742A2A;
+  --border: rgba(0, 0, 0, 0.08);
+  --input: transparent;
+  --input-background: #F7FAFC;
+  --switch-background: #CBD5E0;
+  --font-weight-medium: 600;
+  --font-weight-normal: 400;
+  --font-weight-bold: 700;
+  --ring: #A8C5E8;
+  --chart-1: #A8C5E8;
+  --chart-2: #FFD6E8;
+  --chart-3: #FFF4CC;
+  --chart-4: #D4E8D4;
+  --chart-5: #E8D4F8;
+  --radius: 1rem;
+  --sidebar: #FFFFFF;
+  --sidebar-foreground: #2D3748;
+  --sidebar-primary: #A8C5E8;
+  --sidebar-primary-foreground: #1A365D;
+  --sidebar-accent: #F7FAFC;
+  --sidebar-accent-foreground: #2D3748;
+  --sidebar-border: rgba(0, 0, 0, 0.08);
+  --sidebar-ring: #A8C5E8;
+}
+
+.dark {
+  /* Dark Mode with Pastel Accents */
+  --background: #1A202C;
+  --foreground: #F7FAFC;
+  --card: #2D3748;
+  --card-foreground: #F7FAFC;
+  --popover: #2D3748;
+  --popover-foreground: #F7FAFC;
+  
+  /* Darker Pastel Blues */
+  --primary: #6B8EB3;
+  --primary-foreground: #E8F2FF;
+  --primary-hover: #7D9EC1;
+  
+  /* Darker Pastel Pinks */
+  --secondary: #D499B9;
+  --secondary-foreground: #FFE8F5;
+  --secondary-hover: #DDA8C7;
+  
+  /* Darker Pastel Yellows */
+  --accent: #D4C68A;
+  --accent-foreground: #FFFEF0;
+  --accent-hover: #DDD19B;
+  
+  /* Additional Pastel Colors for Calendar Events - Dark Mode */
+  --pastel-coral: #D4998A;
+  --pastel-coral-foreground: #FFE8E0;
+  --pastel-green: #8DB38D;
+  --pastel-green-foreground: #E8FFE8;
+  --pastel-purple: #B38DD4;
+  --pastel-purple-foreground: #F5E8FF;
+  --pastel-lavender: #A88DC1;
+  --pastel-lavender-foreground: #F0E8FF;
+  
+  --muted: #4A5568;
+  --muted-foreground: #A0AEC0;
+  --destructive: #FC8181;
+  --destructive-foreground: #FFF5F5;
+  --border: rgba(255, 255, 255, 0.1);
+  --input: rgba(255, 255, 255, 0.05);
+  --input-background: #2D3748;
+  --ring: #6B8EB3;
+  --font-weight-medium: 600;
+  --font-weight-normal: 400;
+  --font-weight-bold: 700;
+  --chart-1: #6B8EB3;
+  --chart-2: #D499B9;
+  --chart-3: #D4C68A;
+  --chart-4: #8DB38D;
+  --chart-5: #B38DD4;
+  --sidebar: #2D3748;
+  --sidebar-foreground: #F7FAFC;
+  --sidebar-primary: #6B8EB3;
+  --sidebar-primary-foreground: #E8F2FF;
+  --sidebar-accent: #4A5568;
+  --sidebar-accent-foreground: #F7FAFC;
+  --sidebar-border: rgba(255, 255, 255, 0.1);
+  --sidebar-ring: #6B8EB3;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-input-background: var(--input-background);
+  --color-switch-background: var(--switch-background);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-pastel-coral: var(--pastel-coral);
+  --color-pastel-coral-foreground: var(--pastel-coral-foreground);
+  --color-pastel-green: var(--pastel-green);
+  --color-pastel-green-foreground: var(--pastel-green-foreground);
+  --color-pastel-purple: var(--pastel-purple);
+  --color-pastel-purple-foreground: var(--pastel-purple-foreground);
+  --color-pastel-lavender: var(--pastel-lavender);
+  --color-pastel-lavender-foreground: var(--pastel-lavender-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+
+  /**
+  * Default typography styles for HTML elements (h1-h4, p, label, button, input).
+  * These are in @layer base, so Tailwind utility classes (like text-sm, text-lg) automatically override them.
+  */
+
+  html {
+    font-size: var(--font-size);
+    font-family: var(--font-family);
+  }
+
+  h1 {
+    font-size: var(--text-2xl);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.5;
+  }
+
+  h2 {
+    font-size: var(--text-xl);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.5;
+  }
+
+  h3 {
+    font-size: var(--text-lg);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.5;
+  }
+
+  h4 {
+    font-size: var(--text-base);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.5;
+  }
+
+  label {
+    font-size: var(--text-base);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.5;
+  }
+
+  button {
+    font-size: var(--text-base);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.5;
+  }
+
+  input {
+    font-size: var(--text-base);
+    font-weight: var(--font-weight-normal);
+    line-height: 1.5;
+  }
+}
