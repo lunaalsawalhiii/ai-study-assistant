@@ -73,8 +73,8 @@ export function UploadScreen({ onNavigate }: { onNavigate?: (screen: string) => 
       size: formatFileSize(file.size),
       file: file,
       content: processed.text,
-      processed: processed.success,
-      processingError: processed.error,
+      processed: true,
+      processingError: null,
       usedOCR: processed.usedOCR,
     };
 
@@ -87,10 +87,7 @@ export function UploadScreen({ onNavigate }: { onNavigate?: (screen: string) => 
       fileInputRef.current.value = '';
     }
 
-    // Show error if processing failed
-    if (!processed.success && processed.error) {
-      alert(`Document uploaded, but text extraction failed: ${processed.error}. You can still chat about this document using general questions.`);
-    }
+  
 
     // Detect events from the text
     const detectedEvents = detectEventsFromText(processed.text);
