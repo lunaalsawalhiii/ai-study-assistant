@@ -28,9 +28,6 @@ export function ChatScreen({
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  /* =========================
-     HELPERS
-  ========================= */
   const timeNow = () =>
     new Date().toLocaleTimeString("en-US", {
       hour: "numeric",
@@ -38,67 +35,39 @@ export function ChatScreen({
       hour12: true,
     });
 
-  /* =========================
-     AUTO SCROLL
-  ========================= */
+  /* AUTO SCROLL */
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isTyping]);
 
-  /* =========================
-     INITIAL MESSAGE
-  ========================= */
+  /* INITIAL MESSAGE */
   useEffect(() => {
     setMessages([
       {
         id: 1,
-        text: "Hello! Select a study material and ask me anything.",
+        text: "Hi! I'm your AI assistant. Ask me anything 🙂",
         type: "ai",
         timestamp: timeNow(),
       },
     ]);
   }, []);
 
-  /* =========================
-     SEND MESSAGE (SMART)
-  ========================= */
+  /* SEND MESSAGE */
   const handleSend = async () => {
     if (!inputValue.trim()) return;
 
-    const userMessageText = inputValue;
-
     const userMessage: Message = {
       id: Date.now(),
-      text: userMessageText,
+      text: inputValue,
       type: "user",
       timestamp: timeNow(),
     };
 
     setMessages((prev) => [...prev, userMessage]);
     setInputValue("");
-
-    if (!selectedMaterial) {
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: Date.now() + 1,
-          text: "Please select a study material first.",
-          type: "ai",
-          timestamp: timeNow(),
-        },
-      ]);
-      return;
-    }
-
     setIsTyping(true);
 
     try {
-      // 🔹 Convert chat history to OpenAI format
-      const conversationHistory = messages.map((m) => ({
-        role: m.type === "user" ? "user" : "assistant",
-        content: m.text,
-      }));
-
       const response = await fetch(
         "https://api.openai.com/v1/chat/completions",
         {
@@ -109,34 +78,19 @@ export function ChatScreen({
           },
           body: JSON.stringify({
             model: "gpt-4o-mini",
-            temperature: 0.4,
             messages: [
               {
                 role: "system",
-                content: `
-You are a smart AI study tutor.
-
-STRICT RULES (IMPORTANT):
-- Use ONLY the document content below.
-- Do NOT use outside knowledge.
-- If the answer is not found in the document, say:
-"I cannot find this information in the document."
-
-TEACHING STYLE:
-- Answer like ChatGPT
-- Explain step by step
-- Understand follow-up questions
-- Simplify when asked
-- Give examples ONLY if they exist in the document
-
-DOCUMENT:
-${selectedMaterial.content}
-                `,
+                content:
+                  "You are ChatGPT. Answer naturally, clearly, and helpfully like real ChatGPT.",
               },
-              ...conversationHistory,
+              ...messages.map((m) => ({
+                role: m.type === "user" ? "user" : "assistant",
+                content: m.text,
+              })),
               {
                 role: "user",
-                content: userMessageText,
+                content: userMessage.text,
               },
             ],
           }),
@@ -146,12 +100,12 @@ ${selectedMaterial.content}
       const data = await response.json();
       const aiText =
         data.choices?.[0]?.message?.content ||
-        "I cannot find this information in the document.";
+        "Sorry, I couldn't answer that.";
 
       setMessages((prev) => [
         ...prev,
         {
-          id: Date.now() + 2,
+          id: Date.now(),
           text: aiText,
           type: "ai",
           timestamp: timeNow(),
@@ -161,8 +115,8 @@ ${selectedMaterial.content}
       setMessages((prev) => [
         ...prev,
         {
-          id: Date.now() + 2,
-          text: "Something went wrong while answering.",
+          id: Date.now(),
+          text: "Something went wrong.",
           type: "ai",
           timestamp: timeNow(),
         },
@@ -172,31 +126,19 @@ ${selectedMaterial.content}
     }
   };
 
-  /* =========================
-     UI
-  ========================= */
   return (
     <div className="flex flex-col h-screen bg-background">
       {/* HEADER */}
-      <div className="px-4 pt-6 pb-3 border-b border-border">
+      <div className="px-4 pt-6 pb-3 border-b">
         <div className="flex items-center gap-3">
-          {onNavigate && (
-            <BackButton onBack={() => onNavigate("home")} />
-          )}
-          <div className="flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-primary" />
-            <div>
-              <h1 className="font-bold">AI Study Chat</h1>
-              <p className="text-xs text-muted-foreground">
-                Answers from your materials only
-              </p>
-            </div>
-          </div>
+          {onNavigate && <BackButton onBack={() => onNavigate("home")} />}
+          <Sparkles className="w-5 h-5 text-primary" />
+          <h1 className="font-bold">AI Chat</h1>
         </div>
 
-        {selectedMaterial ? (
-          <div className="mt-3 flex items-center gap-2 bg-muted rounded-lg px-3 py-2">
-            <FileText className="w-4 h-4 text-primary" />
+        {selectedMaterial && (
+          <div className="mt-2 flex items-center gap-2 bg-muted rounded-lg px-3 py-2">
+            <FileText className="w-4 h-4" />
             <span className="text-sm truncate flex-1">
               {selectedMaterial.name}
             </span>
@@ -204,13 +146,6 @@ ${selectedMaterial.content}
               <X className="w-4 h-4" />
             </button>
           </div>
-        ) : (
-          <button
-            onClick={() => setShowMaterialSelector(true)}
-            className="mt-3 w-full bg-muted rounded-lg py-2 text-sm"
-          >
-            Select Study Material
-          </button>
         )}
       </div>
 
@@ -237,13 +172,13 @@ ${selectedMaterial.content}
       </div>
 
       {/* INPUT */}
-      <div className="px-4 pb-28 pt-3 border-t border-border bg-background">
+      <div className="px-4 pb-28 pt-3 border-t bg-background">
         <div className="flex gap-2">
           <InputField
             value={inputValue}
             onChange={setInputValue}
             onSubmit={handleSend}
-            placeholder="Ask me anything..."
+            placeholder="Ask anything..."
           />
           <button
             onClick={handleSend}
@@ -254,26 +189,24 @@ ${selectedMaterial.content}
         </div>
       </div>
 
-      {/* MATERIAL SELECTOR */}
+      {/* MATERIAL SELECTOR (OPTIONAL) */}
       <Modal
         isOpen={showMaterialSelector}
         onClose={() => setShowMaterialSelector(false)}
-        title="Select Study Material"
+        title="Select Material"
       >
-        <div className="space-y-2">
-          {materials.map((m) => (
-            <button
-              key={m.id}
-              onClick={() => {
-                setSelectedMaterial(m);
-                setShowMaterialSelector(false);
-              }}
-              className="w-full text-left p-3 rounded-lg border hover:bg-muted"
-            >
-              {m.name}
-            </button>
-          ))}
-        </div>
+        {materials.map((m) => (
+          <button
+            key={m.id}
+            onClick={() => {
+              setSelectedMaterial(m);
+              setShowMaterialSelector(false);
+            }}
+            className="w-full text-left p-3 border rounded-lg mb-2"
+          >
+            {m.name}
+          </button>
+        ))}
       </Modal>
     </div>
   );
