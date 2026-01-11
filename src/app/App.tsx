@@ -32,12 +32,13 @@ function AppContent() {
   }, []);
 
   // Auto-login if user is authenticated
-  useEffect(() => {
-    if (isAuthenticated && showSplash) {
-      setShowSplash(false);
-      setActiveScreen('home');
-    }
-  }, [isAuthenticated]);
+useEffect(() => {
+  if (isAuthenticated) {
+    setShowSplash(false);
+    setActiveScreen('home');
+  }
+}, [isAuthenticated]);
+
 
   // Handle dark mode toggle
   const handleToggleDarkMode = () => {
@@ -79,8 +80,8 @@ function AppContent() {
     return <SplashScreen onLogin={() => {}} />;
   }
 
-  // Show splash screen if not logged in
-  if (!isAuthenticated) {
+  // Show auth screens only if not authenticated
+if (!isAuthenticated && activeScreen !== 'home') {
     if (showSplash) {
       return (
         <SplashScreen onLogin={() => {
