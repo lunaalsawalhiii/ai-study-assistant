@@ -13,11 +13,7 @@ interface Message {
   timestamp: string;
 }
 
-export function ChatScreen({
-  onNavigate,
-}: {
-  onNavigate?: (screen: string) => void;
-}) {
+export function ChatScreen({ onNavigate }: { onNavigate?: (s: string) => void }) {
   const { materials } = useMaterials();
   const [selectedMaterial, setSelectedMaterial] =
     useState<UploadedMaterial | null>(null);
@@ -35,79 +31,104 @@ export function ChatScreen({
       hour12: true,
     });
 
-  /* AUTO SCROLL */
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, isTyping]);
-
-  /* INITIAL MESSAGE */
   useEffect(() => {
     setMessages([
       {
         id: 1,
-        text: "Hi! I'm your AI assistant. Ask me anything 🙂",
         type: "ai",
         timestamp: timeNow(),
+        text:
+          "Hello! 👋 I'm **Luna**, your AI study partner.\n\n" +
+          "I can chat with you and help you study.\n\n" +
+          "📄 First, please select a study material so I can answer from it.",
       },
     ]);
   }, []);
 
-  /* SEND MESSAGE */
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, isTyping]);
+
   const handleSend = async () => {
     if (!inputValue.trim()) return;
 
-    const userMessage: Message = {
-      id: Date.now(),
-      text: inputValue,
-      type: "user",
-      timestamp: timeNow(),
-    };
-
-    setMessages((prev) => [...prev, userMessage]);
+    const userText = inputValue;
     setInputValue("");
+
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: Date.now(),
+        type: "user",
+        text: userText,
+        timestamp: timeNow(),
+      },
+    ]);
+
     setIsTyping(true);
 
     try {
-      const response = await fetch(
-        "https://api.openai.com/v1/chat/completions",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${import.meta.env.VITE_OPENAI_API_KEY}`,
-          },
-          body: JSON.stringify({
-            model: "gpt-4o-mini",
-            messages: [
-              {
-                role: "system",
-                content:
-                  "You are ChatGPT. Answer naturally, clearly, and helpfully like real ChatGPT.",
-              },
-              ...messages.map((m) => ({
-                role: m.type === "user" ? "user" : "assistant",
-                content: m.text,
-              })),
-              {
-                role: "user",
-                content: userMessage.text,
-              },
-            ],
-          }),
-        }
-      );
+      let systemPrompt = "";
+      let userPrompt = userText;
 
-      const data = await response.json();
+      // 🟦 MODE 1 — NO DOCUMENT SELECTED
+      if (!selectedMaterial) {
+        systemPrompt = `
+You are Luna, a friendly AI study assistant.
+
+You can:
+- Greet the user
+- Explain what you can do
+- Ask them to select a document
+- Chat normally like ChatGPT
+
+If they ask study questions, politely ask them to select a document first.
+`;
+      }
+
+      // 🟩 MODE 2 — DOCUMENT SELECTED
+      else {
+        systemPrompt = `
+You are Luna, a STRICT study assistant.
+
+RULES:
+- Answer ONLY using the document below.
+- If the answer is NOT in the document, say:
+"I cannot find this information in the document."
+- Do NOT use external knowledge.
+- Be clear and helpful.
+
+DOCUMENT:
+${selectedMaterial.content}
+`;
+      }
+
+      const res = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${import.meta.env.VITE_OPENAI_API_KEY}`,
+        },
+        body: JSON.stringify({
+          model: "gpt-4o-mini",
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userPrompt },
+          ],
+        }),
+      });
+
+      const data = await res.json();
       const aiText =
-        data.choices?.[0]?.message?.content ||
-        "Sorry, I couldn't answer that.";
+        data.choices?.[0]?.message?.content ??
+        "Sorry, something went wrong.";
 
       setMessages((prev) => [
         ...prev,
         {
           id: Date.now(),
-          text: aiText,
           type: "ai",
+          text: aiText,
           timestamp: timeNow(),
         },
       ]);
@@ -116,8 +137,8 @@ export function ChatScreen({
         ...prev,
         {
           id: Date.now(),
-          text: "Something went wrong.",
           type: "ai",
+          text: "Something went wrong while answering.",
           timestamp: timeNow(),
         },
       ]);
@@ -133,11 +154,16 @@ export function ChatScreen({
         <div className="flex items-center gap-3">
           {onNavigate && <BackButton onBack={() => onNavigate("home")} />}
           <Sparkles className="w-5 h-5 text-primary" />
-          <h1 className="font-bold">AI Chat</h1>
+          <div>
+            <h1 className="font-bold">AI Chat</h1>
+            <p className="text-xs text-muted-foreground">
+              Smart chat • Study-safe answers
+            </p>
+          </div>
         </div>
 
-        {selectedMaterial && (
-          <div className="mt-2 flex items-center gap-2 bg-muted rounded-lg px-3 py-2">
+        {selectedMaterial ? (
+          <div className="mt-3 flex items-center gap-2 bg-muted rounded-lg px-3 py-2">
             <FileText className="w-4 h-4" />
             <span className="text-sm truncate flex-1">
               {selectedMaterial.name}
@@ -146,39 +172,40 @@ export function ChatScreen({
               <X className="w-4 h-4" />
             </button>
           </div>
+        ) : (
+          <button
+            onClick={() => setShowMaterialSelector(true)}
+            className="mt-3 w-full bg-muted rounded-lg py-2 text-sm"
+          >
+            Select Study Material
+          </button>
         )}
       </div>
 
       {/* MESSAGES */}
       <div className="flex-1 overflow-y-auto px-4 py-4">
-        {messages.map((msg) => (
+        {messages.map((m) => (
           <ChatBubble
-            key={msg.id}
-            message={msg.text}
-            type={msg.type}
-            timestamp={msg.timestamp}
+            key={m.id}
+            message={m.text}
+            type={m.type}
+            timestamp={m.timestamp}
           />
         ))}
-
         {isTyping && (
-          <ChatBubble
-            message="Typing..."
-            type="ai"
-            timestamp={timeNow()}
-          />
+          <ChatBubble message="Typing…" type="ai" timestamp={timeNow()} />
         )}
-
         <div ref={messagesEndRef} />
       </div>
 
       {/* INPUT */}
-      <div className="px-4 pb-28 pt-3 border-t bg-background">
+      <div className="px-4 pb-28 pt-3 border-t">
         <div className="flex gap-2">
           <InputField
             value={inputValue}
             onChange={setInputValue}
             onSubmit={handleSend}
-            placeholder="Ask anything..."
+            placeholder="Ask me anything..."
           />
           <button
             onClick={handleSend}
@@ -189,24 +216,26 @@ export function ChatScreen({
         </div>
       </div>
 
-      {/* MATERIAL SELECTOR (OPTIONAL) */}
+      {/* MATERIAL SELECTOR */}
       <Modal
         isOpen={showMaterialSelector}
         onClose={() => setShowMaterialSelector(false)}
-        title="Select Material"
+        title="Select Study Material"
       >
-        {materials.map((m) => (
-          <button
-            key={m.id}
-            onClick={() => {
-              setSelectedMaterial(m);
-              setShowMaterialSelector(false);
-            }}
-            className="w-full text-left p-3 border rounded-lg mb-2"
-          >
-            {m.name}
-          </button>
-        ))}
+        <div className="space-y-2">
+          {materials.map((m) => (
+            <button
+              key={m.id}
+              onClick={() => {
+                setSelectedMaterial(m);
+                setShowMaterialSelector(false);
+              }}
+              className="w-full text-left p-3 rounded-lg border hover:bg-muted"
+            >
+              {m.name}
+            </button>
+          ))}
+        </div>
       </Modal>
     </div>
   );
