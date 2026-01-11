@@ -14,11 +14,16 @@ interface Message {
   timestamp: string;
 }
 
-export function ChatScreen({
-  onNavigate,
-}: {
-  onNavigate?: (s: string) => void;
-}) {
+/* ✅ SAFE BUILT-IN AI KNOWLEDGE */
+const AI_FALLBACK_INFO = `
+Artificial Intelligence (AI) is the field of computer science focused on creating machines that can perform tasks requiring human intelligence.
+
+These tasks include learning, reasoning, problem solving, understanding language, and decision making.
+
+Machine Learning is a subfield of AI that allows systems to automatically learn and improve from data.
+`;
+
+export function ChatScreen({ onNavigate }: { onNavigate?: (s: string) => void }) {
   const { materials } = useMaterials();
   const [selectedMaterial, setSelectedMaterial] =
     useState<UploadedMaterial | null>(null);
@@ -36,7 +41,7 @@ export function ChatScreen({
       hour12: true,
     });
 
-  // Initial greeting
+  /* GREETING */
   useEffect(() => {
     setMessages([
       {
@@ -46,12 +51,12 @@ export function ChatScreen({
         text:
           "Hi 👋 I’m **Luna**, your AI study partner.\n\n" +
           "You can talk to me like ChatGPT.\n\n" +
-          "📄 When you’re ready, select a study document and I’ll answer **from it**.",
+          "📄 Select a study document and I’ll answer from it.",
       },
     ]);
   }, []);
 
-  // Auto scroll
+  /* AUTO SCROLL */
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isTyping]);
@@ -77,20 +82,19 @@ export function ChatScreen({
     try {
       let systemPrompt = "";
 
-      // 🟦 CHAT MODE (no document)
+      /* 🟦 CHAT MODE */
       if (!selectedMaterial) {
         systemPrompt = `
 You are Luna, a friendly AI assistant.
 
-Behavior:
-- Respond normally like ChatGPT
-- If user greets, greet back
-- If user asks study questions, tell them to select a document
-- Be natural and helpful
+- Greet naturally
+- Explain what AI is
+- Ask user to select a document for study questions
+- Talk like ChatGPT
 `;
       }
 
-      // 🟩 STUDY MODE (document selected)
+      /* 🟩 STUDY MODE */
       else {
         const chunks = chunkText(selectedMaterial.content);
 
@@ -98,12 +102,13 @@ Behavior:
 You are Luna, a smart study assistant.
 
 RULES:
-- Answer using ONLY the document chunks below
-- Be friendly and clear
-- If the answer is not found, say:
-"I couldn’t find this in the document."
+- Answer using ONLY the content below
+- Be clear and friendly
+- If not found, say: "I couldn’t find this in the document."
 
-DOCUMENT CHUNKS:
+DOCUMENT CONTENT:
+${AI_FALLBACK_INFO}
+
 ${chunks.slice(0, 6).join("\n\n---\n\n")}
 `;
       }
