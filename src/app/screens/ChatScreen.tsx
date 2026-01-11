@@ -5,6 +5,7 @@ import { InputField } from "../components/InputField";
 import { ChatBubble } from "../components/ChatBubble";
 import { Modal } from "../components/Modal";
 import { useMaterials, UploadedMaterial } from "../context/MaterialsContext";
+import { chunkText } from "../utils/chunkText";
 
 interface Message {
   id: number;
@@ -13,7 +14,11 @@ interface Message {
   timestamp: string;
 }
 
-export function ChatScreen({ onNavigate }: { onNavigate?: (s: string) => void }) {
+export function ChatScreen({
+  onNavigate,
+}: {
+  onNavigate?: (s: string) => void;
+}) {
   const { materials } = useMaterials();
   const [selectedMaterial, setSelectedMaterial] =
     useState<UploadedMaterial | null>(null);
@@ -31,6 +36,7 @@ export function ChatScreen({ onNavigate }: { onNavigate?: (s: string) => void })
       hour12: true,
     });
 
+  // Initial greeting
   useEffect(() => {
     setMessages([
       {
@@ -38,13 +44,14 @@ export function ChatScreen({ onNavigate }: { onNavigate?: (s: string) => void })
         type: "ai",
         timestamp: timeNow(),
         text:
-          "Hello! 👋 I'm **Luna**, your AI study partner.\n\n" +
-          "I can chat with you and help you study.\n\n" +
-          "📄 First, please select a study material so I can answer from it.",
+          "Hi 👋 I’m **Luna**, your AI study partner.\n\n" +
+          "You can talk to me like ChatGPT.\n\n" +
+          "📄 When you’re ready, select a study document and I’ll answer **from it**.",
       },
     ]);
   }, []);
 
+  // Auto scroll
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isTyping]);
@@ -69,37 +76,35 @@ export function ChatScreen({ onNavigate }: { onNavigate?: (s: string) => void })
 
     try {
       let systemPrompt = "";
-      let userPrompt = userText;
 
-      // 🟦 MODE 1 — NO DOCUMENT SELECTED
+      // 🟦 CHAT MODE (no document)
       if (!selectedMaterial) {
         systemPrompt = `
-You are Luna, a friendly AI study assistant.
+You are Luna, a friendly AI assistant.
 
-You can:
-- Greet the user
-- Explain what you can do
-- Ask them to select a document
-- Chat normally like ChatGPT
-
-If they ask study questions, politely ask them to select a document first.
+Behavior:
+- Respond normally like ChatGPT
+- If user greets, greet back
+- If user asks study questions, tell them to select a document
+- Be natural and helpful
 `;
       }
 
-      // 🟩 MODE 2 — DOCUMENT SELECTED
+      // 🟩 STUDY MODE (document selected)
       else {
+        const chunks = chunkText(selectedMaterial.content);
+
         systemPrompt = `
-You are Luna, a STRICT study assistant.
+You are Luna, a smart study assistant.
 
 RULES:
-- Answer ONLY using the document below.
-- If the answer is NOT in the document, say:
-"I cannot find this information in the document."
-- Do NOT use external knowledge.
-- Be clear and helpful.
+- Answer using ONLY the document chunks below
+- Be friendly and clear
+- If the answer is not found, say:
+"I couldn’t find this in the document."
 
-DOCUMENT:
-${selectedMaterial.content}
+DOCUMENT CHUNKS:
+${chunks.slice(0, 6).join("\n\n---\n\n")}
 `;
       }
 
@@ -113,7 +118,7 @@ ${selectedMaterial.content}
           model: "gpt-4o-mini",
           messages: [
             { role: "system", content: systemPrompt },
-            { role: "user", content: userPrompt },
+            { role: "user", content: userText },
           ],
         }),
       });
