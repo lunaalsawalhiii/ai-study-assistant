@@ -96,14 +96,14 @@ Select a study material and ask me anything.`,
     /* 🔴 KEY FIX: use 100dvh, NOT h-screen */
     <div className="flex flex-col h-[100dvh] bg-background overflow-hidden">
       {/* HEADER */}
-      <div className="flex-shrink-0 bg-gradient-to-r from-primary/20 to-secondary/20 px-6 pt-12 pb-4 rounded-b-3xl relative">
+<div className="flex-shrink-0 bg-gradient-to-r from-primary/20 to-secondary/20 px-6 pb-4 rounded-b-3xl relative">
         {onNavigate && (
           <div className="absolute top-12 left-6">
             <BackButton onBack={() => onNavigate("home")} />
           </div>
         )}
 
-        <div className="flex items-center gap-3 pt-12">
+<div className="flex items-center gap-3 pt-6">
           <div className="w-12 h-12 bg-gradient-to-br from-primary to-secondary rounded-full flex items-center justify-center">
             <Sparkles className="w-6 h-6 text-white" />
           </div>
