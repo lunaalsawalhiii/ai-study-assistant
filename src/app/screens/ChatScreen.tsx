@@ -3,14 +3,13 @@ import { ChatBubble } from "../components/ChatBubble";
 import { InputField } from "../components/InputField";
 import { BackButton } from "../components/BackButton";
 import { Modal } from "../components/Modal";
-import { Card } from "../components/Card";
 import {
   Send,
   Sparkles,
   FileText,
   File as FileIcon,
   BookOpen,
-  X,
+  ArrowDown,
 } from "lucide-react";
 import { useUser } from "../context/UserContext";
 import {
@@ -49,13 +48,30 @@ export function ChatScreen({
   const [selectedMaterial, setSelectedMaterial] =
     useState<UploadedMaterial | null>(null);
   const [showMaterialSelector, setShowMaterialSelector] = useState(false);
+  const [showScrollButton, setShowScrollButton] = useState(false);
 
+  const chatContainerRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  /* ✅ AUTO SCROLL */
+  /* ✅ AUTO SCROLL WHEN MESSAGE ADDED */
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    scrollToBottom();
   }, [messages]);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  /* ✅ SHOW SCROLL BUTTON WHEN USER SCROLLS UP */
+  const handleScroll = () => {
+    const el = chatContainerRef.current;
+    if (!el) return;
+
+    const isNearBottom =
+      el.scrollHeight - el.scrollTop - el.clientHeight < 120;
+
+    setShowScrollButton(!isNearBottom);
+  };
 
   const handleSend = () => {
     if (!inputValue.trim()) return;
@@ -76,7 +92,7 @@ export function ChatScreen({
         {
           id: Date.now() + 1,
           text: selectedMaterial
-            ? `I can answer based on "${selectedMaterial.name}".`
+            ? `I can answer using "${selectedMaterial.name}".`
             : "Please select a study material first.",
           type: "ai",
           timestamp: now,
@@ -89,7 +105,7 @@ export function ChatScreen({
 
   return (
     <div className="flex flex-col h-screen bg-background">
-      {/* ✅ SHORT HEADER */}
+      {/* HEADER */}
       <div className="flex-shrink-0 px-6 pt-6 pb-4 bg-gradient-to-r from-primary/20 to-secondary/20 rounded-b-2xl relative">
         {onNavigate && (
           <div className="absolute top-6 left-6">
@@ -109,7 +125,6 @@ export function ChatScreen({
           </div>
         </div>
 
-        {/* MATERIAL SELECTOR */}
         <button
           onClick={() => setShowMaterialSelector(true)}
           className="mt-3 w-full bg-card border border-border rounded-xl py-2 text-sm font-semibold flex items-center justify-center gap-2"
@@ -119,8 +134,12 @@ export function ChatScreen({
         </button>
       </div>
 
-      {/* ✅ SCROLLABLE CHAT AREA */}
-      <div className="flex-1 overflow-y-auto px-6 py-4">
+      {/* CHAT AREA (SCROLLABLE) */}
+      <div
+        ref={chatContainerRef}
+        onScroll={handleScroll}
+        className="flex-1 overflow-y-auto px-6 py-4 relative"
+      >
         {messages.map((msg) => (
           <ChatBubble
             key={msg.id}
@@ -129,11 +148,22 @@ export function ChatScreen({
             timestamp={msg.timestamp}
           />
         ))}
+
         <div ref={messagesEndRef} />
+
+        {/* ⬇ SCROLL TO BOTTOM BUTTON */}
+        {showScrollButton && (
+          <button
+            onClick={scrollToBottom}
+            className="fixed bottom-28 right-6 bg-primary text-primary-foreground p-3 rounded-full shadow-lg"
+          >
+            <ArrowDown className="w-5 h-5" />
+          </button>
+        )}
       </div>
 
-      {/* INPUT */}
-      <div className="px-6 py-4 border-t bg-background">
+      {/* INPUT (ABOVE BOTTOM NAV) */}
+      <div className="px-6 py-4 border-t bg-background mb-16">
         <div className="flex gap-2">
           <InputField
             value={inputValue}
