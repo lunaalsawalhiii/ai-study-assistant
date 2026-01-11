@@ -557,3 +557,58 @@ app.post("/make-server-12045ef3/materials", async (c) => {
 });
 
 Deno.serve(app.fetch);
+
+// ===== AI CHAT ROUTE =====
+app.post("/make-server-12045ef3/ai/chat", async (c) => {
+  try {
+    const body = await c.req.json();
+    const { question, documentText } = body;
+
+    if (!question || !documentText) {
+      return c.json({ error: "Missing question or document text" }, 400);
+    }
+
+    const OPENAI_KEY = Deno.env.get("OPENAI_API_KEY");
+    if (!OPENAI_KEY) {
+      return c.json({ error: "OpenAI key not configured" }, 500);
+    }
+
+    const prompt = `
+You are a strict study assistant.
+
+RULES:
+- Answer ONLY from the document content below
+- If the answer is not in the document, say:
+  "I can’t find this information in the uploaded material."
+
+DOCUMENT:
+${documentText}
+
+QUESTION:
+${question}
+`;
+
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${OPENAI_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "gpt-4o-mini",
+        messages: [{ role: "user", content: prompt }],
+        temperature: 0,
+      }),
+    });
+
+    const data = await response.json();
+
+    return c.json({
+      answer: data.choices[0].message.content,
+    });
+  } catch (error) {
+    console.error("AI chat error:", error);
+    return c.json({ error: "AI failed to answer" }, 500);
+  }
+});
+
