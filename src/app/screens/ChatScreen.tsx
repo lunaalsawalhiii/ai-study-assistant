@@ -23,7 +23,7 @@ const fileToBase64 = (file: File): Promise<string> =>
     reader.onerror = reject;
   });
 
-export function UploadScreen({
+export function ChatScreen({
   onNavigate,
 }: {
   onNavigate?: (screen: string) => void;
