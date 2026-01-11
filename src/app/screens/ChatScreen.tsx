@@ -1,8 +1,9 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Send, Sparkles } from "lucide-react";
+import { Send, Sparkles, FileText, X } from "lucide-react";
 import { ChatBubble } from "../components/ChatBubble";
 import { InputField } from "../components/InputField";
-import { useMaterials } from "../context/MaterialsContext";
+import { Modal } from "../components/Modal";
+import { useMaterials, UploadedMaterial } from "../context/MaterialsContext";
 
 interface Message {
   id: number;
@@ -13,10 +14,13 @@ interface Message {
 
 export function ChatScreen() {
   const { materials } = useMaterials();
-  const documentText = materials[0]?.content || "";
+  const [selectedMaterial, setSelectedMaterial] =
+    useState<UploadedMaterial | null>(null);
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
+  const [showSelector, setShowSelector] = useState(false);
+
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const timeNow = () =>
@@ -33,8 +37,9 @@ export function ChatScreen() {
         type: "ai",
         timestamp: timeNow(),
         text:
-          "Hi 👋 I’m **Luna**, an AI study assistant.\n\n" +
-          "I help explain Artificial Intelligence topics using your study material.",
+          "Hi 👋 I’m **Luna**, your AI study assistant.\n\n" +
+          "You can talk to me like ChatGPT.\n\n" +
+          "📄 Please select a study document so I can answer from it.",
       },
     ]);
   }, []);
@@ -43,31 +48,31 @@ export function ChatScreen() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const answerFromDocument = (question: string) => {
-    if (!documentText) {
-      return "Please upload an AI document so I can help you study.";
+  const answer = (q: string) => {
+    if (!selectedMaterial) {
+      return "Please select a document first 📄";
     }
 
-    const lowerDoc = documentText.toLowerCase();
-    const lowerQ = question.toLowerCase();
+    const doc = selectedMaterial.content.toLowerCase();
+    const question = q.toLowerCase();
 
-    if (lowerQ.includes("hi") || lowerQ.includes("hello")) {
-      return "Hello 😊 I’m ready to help you study Artificial Intelligence.";
+    if (question.includes("hi") || question.includes("hello")) {
+      return "Hello 😊 I’m ready to help you study.";
     }
 
-    if (lowerDoc.includes("artificial intelligence") && lowerQ.includes("what")) {
-      return "Artificial Intelligence is the field of computer science that focuses on creating systems capable of intelligent behavior, such as learning, reasoning, and problem-solving.";
+    if (doc.includes("artificial intelligence") && question.includes("what")) {
+      return "Artificial Intelligence is the field of creating machines that can perform tasks requiring human intelligence.";
     }
 
-    if (lowerQ.includes("machine learning")) {
-      return "Machine Learning is a subset of Artificial Intelligence that allows systems to learn from data and improve their performance without being explicitly programmed.";
+    if (question.includes("machine learning")) {
+      return "Machine Learning is a branch of AI that allows systems to learn from data and improve automatically.";
     }
 
-    if (lowerQ.includes("ai")) {
-      return "Based on the document, Artificial Intelligence involves simulating human intelligence in machines to perform tasks like decision-making and learning.";
+    if (question.includes("ai")) {
+      return "Based on the document, AI focuses on intelligent behavior such as learning, reasoning, and decision-making.";
     }
 
-    return "I couldn’t find a direct answer in the document, but you can ask about AI concepts like machine learning, intelligence, or applications.";
+    return "I couldn’t find this information in the selected document.";
   };
 
   const send = () => {
@@ -87,7 +92,7 @@ export function ChatScreen() {
       {
         id: Date.now() + 1,
         type: "ai",
-        text: answerFromDocument(userText),
+        text: answer(userText),
         timestamp: timeNow(),
       },
     ]);
@@ -95,11 +100,34 @@ export function ChatScreen() {
 
   return (
     <div className="flex flex-col h-screen bg-background">
-      <div className="px-4 pt-6 pb-3 border-b flex items-center gap-2">
-        <Sparkles className="w-5 h-5 text-primary" />
-        <h1 className="font-bold">AI Study Chat</h1>
+      {/* HEADER */}
+      <div className="px-4 pt-6 pb-3 border-b">
+        <div className="flex items-center gap-2">
+          <Sparkles className="text-primary" />
+          <h1 className="font-bold">AI Study Chat</h1>
+        </div>
+
+        {selectedMaterial ? (
+          <div className="mt-3 flex items-center gap-2 bg-muted px-3 py-2 rounded-lg">
+            <FileText className="w-4 h-4" />
+            <span className="flex-1 truncate text-sm">
+              {selectedMaterial.name}
+            </span>
+            <button onClick={() => setSelectedMaterial(null)}>
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={() => setShowSelector(true)}
+            className="mt-3 w-full bg-muted py-2 rounded-lg text-sm"
+          >
+            Select Study Document
+          </button>
+        )}
       </div>
 
+      {/* MESSAGES (SCROLLABLE) */}
       <div className="flex-1 overflow-y-auto px-4 py-4">
         {messages.map((m) => (
           <ChatBubble
@@ -112,20 +140,45 @@ export function ChatScreen() {
         <div ref={bottomRef} />
       </div>
 
-      <div className="p-4 border-t flex gap-2">
-        <InputField
-          value={input}
-          onChange={setInput}
-          onSubmit={send}
-          placeholder="Ask about Artificial Intelligence..."
-        />
-        <button
-          onClick={send}
-          className="w-12 h-12 bg-primary rounded-xl flex items-center justify-center"
-        >
-          <Send className="text-white" />
-        </button>
+      {/* INPUT */}
+      <div className="p-4 border-t">
+        <div className="flex gap-2">
+          <InputField
+            value={input}
+            onChange={setInput}
+            onSubmit={send}
+            placeholder="Ask about AI..."
+          />
+          <button
+            onClick={send}
+            className="w-12 h-12 bg-primary rounded-xl flex items-center justify-center"
+          >
+            <Send className="text-white" />
+          </button>
+        </div>
       </div>
+
+      {/* DOCUMENT SELECTOR */}
+      <Modal
+        isOpen={showSelector}
+        onClose={() => setShowSelector(false)}
+        title="Choose a document"
+      >
+        <div className="space-y-2">
+          {materials.map((m) => (
+            <button
+              key={m.id}
+              onClick={() => {
+                setSelectedMaterial(m);
+                setShowSelector(false);
+              }}
+              className="w-full text-left p-3 border rounded-lg hover:bg-muted"
+            >
+              {m.name}
+            </button>
+          ))}
+        </div>
+      </Modal>
     </div>
   );
 }
