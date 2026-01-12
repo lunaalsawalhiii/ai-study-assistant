@@ -1,11 +1,10 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Send, Sparkles, FileText, X } from "lucide-react";
+import { Send, Sparkles, FileText, File as FileIcon, X } from "lucide-react";
 import { BackButton } from "../components/BackButton";
 import { InputField } from "../components/InputField";
 import { ChatBubble } from "../components/ChatBubble";
 import { Modal } from "../components/Modal";
 import { useMaterials, UploadedMaterial } from "../context/MaterialsContext";
-import { chunkText } from "../utils/chunkText";
 
 interface Message {
   id: number;
@@ -14,16 +13,11 @@ interface Message {
   timestamp: string;
 }
 
-/* ✅ SAFE BUILT-IN AI KNOWLEDGE */
-const AI_FALLBACK_INFO = `
-Artificial Intelligence (AI) is the field of computer science focused on creating machines that can perform tasks requiring human intelligence.
-
-These tasks include learning, reasoning, problem solving, understanding language, and decision making.
-
-Machine Learning is a subfield of AI that allows systems to automatically learn and improve from data.
-`;
-
-export function ChatScreen({ onNavigate }: { onNavigate?: (s: string) => void }) {
+export function ChatScreen({
+  onNavigate,
+}: {
+  onNavigate?: (screen: string) => void;
+}) {
   const { materials } = useMaterials();
   const [selectedMaterial, setSelectedMaterial] =
     useState<UploadedMaterial | null>(null);
@@ -41,17 +35,16 @@ export function ChatScreen({ onNavigate }: { onNavigate?: (s: string) => void })
       hour12: true,
     });
 
-  /* GREETING */
+  /* INITIAL MESSAGE */
   useEffect(() => {
     setMessages([
       {
         id: 1,
+        text:
+          "Hi 👋 I’m Luna, your AI study partner.\n\n" +
+          "📄 Please select a study document and I’ll answer from it.",
         type: "ai",
         timestamp: timeNow(),
-        text:
-          "Hi 👋 I’m **Luna**, your AI study partner.\n\n" +
-          "You can talk to me like ChatGPT.\n\n" +
-          "📄 Select a study document and I’ll answer from it.",
       },
     ]);
   }, []);
@@ -61,7 +54,23 @@ export function ChatScreen({ onNavigate }: { onNavigate?: (s: string) => void })
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isTyping]);
 
-  const handleSend = async () => {
+  /* FAKE AI RESPONSE (DOCUMENT-ONLY) */
+  const answerFromDocument = (question: string, material: UploadedMaterial) => {
+    if (!material.content) {
+      return "I can’t read this document. Please upload a readable file.";
+    }
+
+    const text = material.content.toLowerCase();
+    const q = question.toLowerCase();
+
+    if (text.includes(q)) {
+      return `According to **${material.name}**, this topic is discussed in the document.`;
+    }
+
+    return `I can’t find this information in **${material.name}**.`;
+  };
+
+  const handleSend = () => {
     if (!inputValue.trim()) return;
 
     const userText = inputValue;
@@ -71,110 +80,63 @@ export function ChatScreen({ onNavigate }: { onNavigate?: (s: string) => void })
       ...prev,
       {
         id: Date.now(),
-        type: "user",
         text: userText,
+        type: "user",
         timestamp: timeNow(),
       },
     ]);
 
+    if (!selectedMaterial) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now(),
+          text: "Please select a study document first 📄",
+          type: "ai",
+          timestamp: timeNow(),
+        },
+      ]);
+      return;
+    }
+
     setIsTyping(true);
 
-    try {
-      let systemPrompt = "";
-
-      /* 🟦 CHAT MODE */
-      if (!selectedMaterial) {
-        systemPrompt = `
-You are Luna, a friendly AI assistant.
-
-- Greet naturally
-- Explain what AI is
-- Ask user to select a document for study questions
-- Talk like ChatGPT
-`;
-      }
-
-      /* 🟩 STUDY MODE */
-      else {
-        const chunks = chunkText(selectedMaterial.content);
-
-        systemPrompt = `
-You are Luna, a smart study assistant.
-
-RULES:
-- Answer using ONLY the content below
-- Be clear and friendly
-- If not found, say: "I couldn’t find this in the document."
-
-DOCUMENT CONTENT:
-${AI_FALLBACK_INFO}
-
-${chunks.slice(0, 6).join("\n\n---\n\n")}
-`;
-      }
-
-      const res = await fetch("https://api.openai.com/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${import.meta.env.VITE_OPENAI_API_KEY}`,
-        },
-        body: JSON.stringify({
-          model: "gpt-4o-mini",
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: userText },
-          ],
-        }),
-      });
-
-      const data = await res.json();
-      const aiText =
-        data.choices?.[0]?.message?.content ??
-        "Sorry, something went wrong.";
+    setTimeout(() => {
+      const aiReply = answerFromDocument(userText, selectedMaterial);
 
       setMessages((prev) => [
         ...prev,
         {
           id: Date.now(),
+          text: aiReply,
           type: "ai",
-          text: aiText,
           timestamp: timeNow(),
         },
       ]);
-    } catch {
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: Date.now(),
-          type: "ai",
-          text: "Something went wrong while answering.",
-          timestamp: timeNow(),
-        },
-      ]);
-    } finally {
       setIsTyping(false);
-    }
+    }, 800);
   };
 
   return (
     <div className="flex flex-col h-screen bg-background">
       {/* HEADER */}
-      <div className="px-4 pt-6 pb-3 border-b">
+      <div className="bg-gradient-to-r from-primary/20 to-secondary/20 px-6 pt-12 pb-4 rounded-b-3xl">
         <div className="flex items-center gap-3">
-          {onNavigate && <BackButton onBack={() => onNavigate("home")} />}
-          <Sparkles className="w-5 h-5 text-primary" />
+          {onNavigate && (
+            <BackButton onBack={() => onNavigate("home")} />
+          )}
+          <Sparkles className="w-6 h-6 text-primary" />
           <div>
-            <h1 className="font-bold">AI Chat</h1>
-            <p className="text-xs text-muted-foreground">
-              Smart chat • Study-safe answers
+            <h1 className="text-lg font-bold">AI Study Chat</h1>
+            <p className="text-sm text-muted-foreground">
+              Answers from your documents only
             </p>
           </div>
         </div>
 
         {selectedMaterial ? (
-          <div className="mt-3 flex items-center gap-2 bg-muted rounded-lg px-3 py-2">
-            <FileText className="w-4 h-4" />
+          <div className="mt-4 flex items-center gap-2 bg-card rounded-xl p-3">
+            <FileText className="w-4 h-4 text-primary" />
             <span className="text-sm truncate flex-1">
               {selectedMaterial.name}
             </span>
@@ -185,7 +147,7 @@ ${chunks.slice(0, 6).join("\n\n---\n\n")}
         ) : (
           <button
             onClick={() => setShowMaterialSelector(true)}
-            className="mt-3 w-full bg-muted rounded-lg py-2 text-sm"
+            className="mt-4 w-full bg-card rounded-xl p-3 text-sm"
           >
             Select Study Material
           </button>
@@ -193,33 +155,39 @@ ${chunks.slice(0, 6).join("\n\n---\n\n")}
       </div>
 
       {/* MESSAGES */}
-      <div className="flex-1 overflow-y-auto px-4 py-4">
-        {messages.map((m) => (
+      <div className="flex-1 overflow-y-auto px-6 py-4">
+        {messages.map((msg) => (
           <ChatBubble
-            key={m.id}
-            message={m.text}
-            type={m.type}
-            timestamp={m.timestamp}
+            key={msg.id}
+            message={msg.text}
+            type={msg.type}
+            timestamp={msg.timestamp}
           />
         ))}
+
         {isTyping && (
-          <ChatBubble message="Typing…" type="ai" timestamp={timeNow()} />
+          <ChatBubble
+            message="Typing..."
+            type="ai"
+            timestamp={timeNow()}
+          />
         )}
+
         <div ref={messagesEndRef} />
       </div>
 
       {/* INPUT */}
-      <div className="px-4 pb-28 pt-3 border-t">
+      <div className="px-6 pb-24 pt-4 border-t bg-background">
         <div className="flex gap-2">
           <InputField
             value={inputValue}
             onChange={setInputValue}
             onSubmit={handleSend}
-            placeholder="Ask me anything..."
+            placeholder="Ask about the document..."
           />
           <button
             onClick={handleSend}
-            className="w-12 h-12 bg-primary rounded-xl flex items-center justify-center"
+            className="w-12 h-12 bg-primary rounded-2xl flex items-center justify-center"
           >
             <Send className="w-5 h-5 text-white" />
           </button>
@@ -233,16 +201,23 @@ ${chunks.slice(0, 6).join("\n\n---\n\n")}
         title="Select Study Material"
       >
         <div className="space-y-2">
-          {materials.map((m) => (
+          {materials.map((material) => (
             <button
-              key={m.id}
+              key={material.id}
               onClick={() => {
-                setSelectedMaterial(m);
+                setSelectedMaterial(material);
                 setShowMaterialSelector(false);
               }}
-              className="w-full text-left p-3 rounded-lg border hover:bg-muted"
+              className="w-full bg-card border rounded-xl p-3 flex items-center gap-3"
             >
-              {m.name}
+              <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
+                {material.type === "pdf" ? (
+                  <FileText className="w-5 h-5 text-primary" />
+                ) : (
+                  <FileIcon className="w-5 h-5 text-accent" />
+                )}
+              </div>
+              <span className="truncate">{material.name}</span>
             </button>
           ))}
         </div>
