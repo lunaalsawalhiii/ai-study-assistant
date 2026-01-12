@@ -6,28 +6,46 @@ import { ChatBubble } from "../components/ChatBubble";
 import { Modal } from "../components/Modal";
 import { useMaterials, UploadedMaterial } from "../context/MaterialsContext";
 
+/* ===============================
+   BUILT-IN AI DOCUMENT (DEMO)
+================================ */
+const AI_DOCUMENT: UploadedMaterial = {
+  id: "ai-doc",
+  name: "Introduction to Artificial Intelligence",
+  type: "pdf",
+  content: `
+Artificial Intelligence (AI) is the simulation of human intelligence
+processes by machines, especially computer systems.
+
+These processes include learning, reasoning, problem-solving,
+perception, and language understanding.
+
+AI can be categorized into:
+- Narrow AI: Designed for specific tasks
+- General AI: Human-level intelligence (theoretical)
+- Super AI: Intelligence beyond humans (hypothetical)
+
+Common AI applications include:
+- Expert systems
+- Machine learning
+- Natural language processing
+- Computer vision
+- Robotics
+
+Machine learning is a subset of AI that enables systems to learn
+from data without being explicitly programmed.
+`,
+};
+
+/* ===============================
+   TYPES
+================================ */
 interface Message {
   id: number;
   text: string;
   type: "user" | "ai";
   timestamp: string;
 }
-
-/* 🔴 DEMO DOCUMENT CONTENT (AI PDF FED MANUALLY) */
-const AI_DOCUMENT_TEXT = `
-Artificial Intelligence (AI) is the simulation of human intelligence
-processes by machines, especially computer systems.
-
-These processes include learning (the acquisition of information
-and rules for using the information), reasoning (using rules to
-reach approximate or definite conclusions), and self-correction.
-
-Applications of AI include expert systems, natural language processing,
-speech recognition, computer vision, robotics, and machine learning.
-
-AI can be categorized into narrow AI (designed for a specific task)
-and general AI (which can perform any intellectual task that a human can).
-`;
 
 export function ChatScreen({
   onNavigate,
@@ -51,15 +69,16 @@ export function ChatScreen({
       hour12: true,
     });
 
-  /* INITIAL MESSAGE */
+  /* ===============================
+     INITIAL MESSAGE
+  ================================ */
   useEffect(() => {
     setMessages([
       {
         id: 1,
         text:
           "Hi 👋 I’m Luna, your AI study partner.\n\n" +
-          "📄 Select a study document and ask me anything.\n" +
-          "I will answer ONLY from that document.",
+          "📄 Select a study document and I will answer ONLY from it.",
         type: "ai",
         timestamp: timeNow(),
       },
@@ -71,26 +90,34 @@ export function ChatScreen({
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isTyping]);
 
-  /* STRICT DOCUMENT-ONLY ANSWER */
-  const answerFromDocument = (question: string) => {
+  /* ===============================
+     DOCUMENT-ONLY ANSWER LOGIC
+  ================================ */
+  const answerFromDocument = (
+    question: string,
+    material: UploadedMaterial
+  ) => {
+    if (!material.content) {
+      return `I can’t read **${material.name}**.`;
+    }
+
+    const docText = material.content.toLowerCase();
     const q = question.toLowerCase();
-    const text = AI_DOCUMENT_TEXT.toLowerCase();
 
-    if (q.includes("what is ai") || q.includes("what is artificial")) {
-      return (
-        "📘 **According to the document:**\n\n" +
-        "Artificial Intelligence (AI) is the simulation of human intelligence " +
-        "processes by machines, especially computer systems."
-      );
+    if (q.includes("what is ai")) {
+      return `According to **${material.name}**:\n\nArtificial Intelligence (AI) is the simulation of human intelligence processes by machines.`;
     }
 
-    if (text.includes(q)) {
-      return "📘 This topic is discussed in the document.";
+    if (docText.includes(q)) {
+      return `This topic is mentioned in **${material.name}**.`;
     }
 
-    return "❌ I can’t find this information in the selected document.";
+    return `I can’t find this information in **${material.name}**.`;
   };
 
+  /* ===============================
+     SEND MESSAGE
+  ================================ */
   const handleSend = () => {
     if (!inputValue.trim()) return;
 
@@ -112,7 +139,7 @@ export function ChatScreen({
         ...prev,
         {
           id: Date.now(),
-          text: "📄 Please select a study document first.",
+          text: "Please select a study document first 📄",
           type: "ai",
           timestamp: timeNow(),
         },
@@ -123,21 +150,24 @@ export function ChatScreen({
     setIsTyping(true);
 
     setTimeout(() => {
-      const aiReply = answerFromDocument(userText);
+      const reply = answerFromDocument(userText, selectedMaterial);
 
       setMessages((prev) => [
         ...prev,
         {
           id: Date.now(),
-          text: aiReply,
+          text: reply,
           type: "ai",
           timestamp: timeNow(),
         },
       ]);
       setIsTyping(false);
-    }, 700);
+    }, 600);
   };
 
+  /* ===============================
+     UI
+  ================================ */
   return (
     <div className="flex flex-col h-screen bg-background">
       {/* HEADER */}
@@ -188,7 +218,7 @@ export function ChatScreen({
 
         {isTyping && (
           <ChatBubble
-            message="Typing…"
+            message="Typing..."
             type="ai"
             timestamp={timeNow()}
           />
@@ -222,6 +252,21 @@ export function ChatScreen({
         title="Select Study Material"
       >
         <div className="space-y-2">
+          {/* BUILT-IN AI DOC */}
+          <button
+            onClick={() => {
+              setSelectedMaterial(AI_DOCUMENT);
+              setShowMaterialSelector(false);
+            }}
+            className="w-full bg-card border rounded-xl p-3 flex items-center gap-3"
+          >
+            <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
+              <FileText className="w-5 h-5 text-primary" />
+            </div>
+            <span>Introduction to Artificial Intelligence</span>
+          </button>
+
+          {/* USER FILES */}
           {materials.map((material) => (
             <button
               key={material.id}
