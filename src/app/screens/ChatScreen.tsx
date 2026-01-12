@@ -42,7 +42,8 @@ export function ChatScreen({
         id: 1,
         text:
           "Hi 👋 I’m Luna, your AI study partner.\n\n" +
-          "📄 Please select a study document and I’ll answer from it.",
+          "📄 Select a study document and ask me anything.\n" +
+          "I will answer ONLY from that document.",
         type: "ai",
         timestamp: timeNow(),
       },
@@ -54,29 +55,107 @@ export function ChatScreen({
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isTyping]);
 
-  /* FAKE AI RESPONSE (DOCUMENT-ONLY) */
-  const answerFromDocument = (question: string, material: UploadedMaterial) => {
-    if (!material.content) {
+  /* ========= CORE AI LOGIC (DOCUMENT-ONLY) ========= */
+  const answerFromDocument = (
+    question: string,
+    material: UploadedMaterial
+  ): string => {
+    if (!material.content || material.content.trim().length < 30) {
       return "I can’t read this document. Please upload a readable file.";
     }
 
-    const text = material.content.toLowerCase();
-    const q = question.toLowerCase();
+    const content = material.content;
+    const lowerQuestion = question.toLowerCase();
 
-    if (text.includes(q)) {
-      return `According to **${material.name}**, this topic is discussed in the document.`;
+    // Split document into meaningful sentences
+    const sentences = content
+      .split(/[.!?]+/)
+      .map(s => s.trim())
+      .filter(s => s.length > 30);
+
+    // Extract important words from the question
+    const stopWords = [
+      "what", "is", "are", "the", "explain", "define",
+      "how", "why", "tell", "about", "give", "me"
+    ];
+
+    const keywords = lowerQuestion
+      .split(" ")
+      .filter(w => w.length > 3 && !stopWords.includes(w));
+
+    // Score sentences
+    const scored = sentences.map(sentence => {
+      let score = 0;
+      keywords.forEach(word => {
+        if (sentence.toLowerCase().includes(word)) {
+          score += 2;
+        }
+      });
+      return { sentence, score };
+    });
+
+    const matches = scored
+      .filter(s => s.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 3)
+      .map(s => s.sentence);
+
+    if (matches.length === 0) {
+      return "I can’t find this information in the uploaded material.";
     }
 
-    return `I can’t find this information in **${material.name}**.`;
+    // Question intent handling
+    if (
+      lowerQuestion.includes("summary") ||
+      lowerQuestion.includes("summarize") ||
+      lowerQuestion.includes("overview")
+    ) {
+      return (
+        "Here is a summary based on the document:\n\n" +
+        matches.join(". ") +
+        "."
+      );
+    }
+
+    if (
+      lowerQuestion.includes("define") ||
+      lowerQuestion.includes("what is") ||
+      lowerQuestion.includes("what are")
+    ) {
+      return (
+        "According to the document:\n\n" +
+        matches.join(". ") +
+        "."
+      );
+    }
+
+    if (
+      lowerQuestion.includes("how") ||
+      lowerQuestion.includes("why") ||
+      lowerQuestion.includes("explain")
+    ) {
+      return (
+        "The document explains:\n\n" +
+        matches.join(". ") +
+        "."
+      );
+    }
+
+    return (
+      "Based on the document:\n\n" +
+      matches.join(". ") +
+      "."
+    );
   };
 
+  /* SEND MESSAGE */
   const handleSend = () => {
     if (!inputValue.trim()) return;
 
     const userText = inputValue;
     setInputValue("");
 
-    setMessages((prev) => [
+    setMessages(prev => [
       ...prev,
       {
         id: Date.now(),
@@ -87,7 +166,7 @@ export function ChatScreen({
     ]);
 
     if (!selectedMaterial) {
-      setMessages((prev) => [
+      setMessages(prev => [
         ...prev,
         {
           id: Date.now(),
@@ -104,7 +183,7 @@ export function ChatScreen({
     setTimeout(() => {
       const aiReply = answerFromDocument(userText, selectedMaterial);
 
-      setMessages((prev) => [
+      setMessages(prev => [
         ...prev,
         {
           id: Date.now(),
@@ -113,8 +192,9 @@ export function ChatScreen({
           timestamp: timeNow(),
         },
       ]);
+
       setIsTyping(false);
-    }, 800);
+    }, 900);
   };
 
   return (
@@ -122,14 +202,12 @@ export function ChatScreen({
       {/* HEADER */}
       <div className="bg-gradient-to-r from-primary/20 to-secondary/20 px-6 pt-12 pb-4 rounded-b-3xl">
         <div className="flex items-center gap-3">
-          {onNavigate && (
-            <BackButton onBack={() => onNavigate("home")} />
-          )}
+          {onNavigate && <BackButton onBack={() => onNavigate("home")} />}
           <Sparkles className="w-6 h-6 text-primary" />
           <div>
             <h1 className="text-lg font-bold">AI Study Chat</h1>
             <p className="text-sm text-muted-foreground">
-              Answers from your documents only
+              Document-only answers
             </p>
           </div>
         </div>
@@ -156,7 +234,7 @@ export function ChatScreen({
 
       {/* MESSAGES */}
       <div className="flex-1 overflow-y-auto px-6 py-4">
-        {messages.map((msg) => (
+        {messages.map(msg => (
           <ChatBubble
             key={msg.id}
             message={msg.text}
@@ -167,7 +245,7 @@ export function ChatScreen({
 
         {isTyping && (
           <ChatBubble
-            message="Typing..."
+            message="Thinking…"
             type="ai"
             timestamp={timeNow()}
           />
@@ -183,7 +261,7 @@ export function ChatScreen({
             value={inputValue}
             onChange={setInputValue}
             onSubmit={handleSend}
-            placeholder="Ask about the document..."
+            placeholder="Ask about the document…"
           />
           <button
             onClick={handleSend}
@@ -201,7 +279,7 @@ export function ChatScreen({
         title="Select Study Material"
       >
         <div className="space-y-2">
-          {materials.map((material) => (
+          {materials.map(material => (
             <button
               key={material.id}
               onClick={() => {
