@@ -13,6 +13,22 @@ interface Message {
   timestamp: string;
 }
 
+/* 🔴 DEMO DOCUMENT CONTENT (AI PDF FED MANUALLY) */
+const AI_DOCUMENT_TEXT = `
+Artificial Intelligence (AI) is the simulation of human intelligence
+processes by machines, especially computer systems.
+
+These processes include learning (the acquisition of information
+and rules for using the information), reasoning (using rules to
+reach approximate or definite conclusions), and self-correction.
+
+Applications of AI include expert systems, natural language processing,
+speech recognition, computer vision, robotics, and machine learning.
+
+AI can be categorized into narrow AI (designed for a specific task)
+and general AI (which can perform any intellectual task that a human can).
+`;
+
 export function ChatScreen({
   onNavigate,
 }: {
@@ -43,7 +59,7 @@ export function ChatScreen({
         text:
           "Hi 👋 I’m Luna, your AI study partner.\n\n" +
           "📄 Select a study document and ask me anything.\n" +
-          "⚠️ I will answer ONLY from the selected document.",
+          "I will answer ONLY from that document.",
         type: "ai",
         timestamp: timeNow(),
       },
@@ -55,41 +71,24 @@ export function ChatScreen({
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isTyping]);
 
-  /* DOCUMENT-ONLY SMART ANSWER */
-  const answerFromDocument = (
-    question: string,
-    material: UploadedMaterial
-  ) => {
-    const docText = material.content?.trim();
-
-    if (!docText) {
-      return (
-        `⚠️ I can’t read the content of **${material.name}**.\n\n` +
-        "This document has no extracted text. Please make sure the PDF is processed into text."
-      );
-    }
-
-    const text = docText.toLowerCase();
+  /* STRICT DOCUMENT-ONLY ANSWER */
+  const answerFromDocument = (question: string) => {
     const q = question.toLowerCase();
+    const text = AI_DOCUMENT_TEXT.toLowerCase();
 
-    // Strong keyword-based relevance check
-    const keywords = q.split(" ").filter((w) => w.length > 3);
-    const matches = keywords.filter((k) => text.includes(k));
-
-    if (matches.length === 0) {
+    if (q.includes("what is ai") || q.includes("what is artificial")) {
       return (
-        `I couldn’t find information related to your question in **${material.name}**.\n\n` +
-        "Try rephrasing your question using terms from the document."
+        "📘 **According to the document:**\n\n" +
+        "Artificial Intelligence (AI) is the simulation of human intelligence " +
+        "processes by machines, especially computer systems."
       );
     }
 
-    // Return a smart, ChatGPT-style answer (still doc-only)
-    return (
-      `📘 **From ${material.name}:**\n\n` +
-      docText.slice(0, 600) +
-      "...\n\n" +
-      "If you want a specific section explained, ask about it directly."
-    );
+    if (text.includes(q)) {
+      return "📘 This topic is discussed in the document.";
+    }
+
+    return "❌ I can’t find this information in the selected document.";
   };
 
   const handleSend = () => {
@@ -124,7 +123,7 @@ export function ChatScreen({
     setIsTyping(true);
 
     setTimeout(() => {
-      const aiReply = answerFromDocument(userText, selectedMaterial);
+      const aiReply = answerFromDocument(userText);
 
       setMessages((prev) => [
         ...prev,
@@ -136,7 +135,7 @@ export function ChatScreen({
         },
       ]);
       setIsTyping(false);
-    }, 900);
+    }, 700);
   };
 
   return (
@@ -189,7 +188,7 @@ export function ChatScreen({
 
         {isTyping && (
           <ChatBubble
-            message="Typing..."
+            message="Typing…"
             type="ai"
             timestamp={timeNow()}
           />
